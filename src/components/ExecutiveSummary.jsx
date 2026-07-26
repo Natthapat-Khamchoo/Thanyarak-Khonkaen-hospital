@@ -35,6 +35,29 @@ const safeToFixed = (val, digits = 1) => {
   return isNaN(num) ? '0.0' : num.toFixed(digits);
 };
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="custom-tooltip" style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #e2e8f0',
+        padding: '0.75rem 1rem',
+        borderRadius: '8px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+        fontSize: '0.825rem'
+      }}>
+        <p className="custom-tooltip-title" style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>{label}</p>
+        {payload.map((pld, index) => (
+          <p key={index} className="custom-tooltip-value" style={{ color: pld.color, margin: '2px 0', fontWeight: 600 }}>
+            {pld.name}: {typeof pld.value === 'number' ? pld.value.toLocaleString() : pld.value} {pld.name.includes('Rate') || pld.name.includes('ร้อยละ') ? '%' : 'ราย'}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function ExecutiveSummary({ metrics = {}, year = '2568', province = 'All' }) {
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -68,6 +91,14 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
     if (val < 15) return 'warn';
     return 'danger';
   };
+
+  // Pie chart data
+  const pieData = [
+    { name: 'ติดตามสำเร็จ (Followed)', value: Math.round(totalReferrals * (followUpRate / 100)) || 0 },
+    { name: 'ยังไม่พบมาติดตาม (Lost FU)', value: Math.round(totalReferrals * (lossToFollowUpRate / 100)) || 0 }
+  ];
+  
+  const COLORS = ['#0ea5e9', '#f59e0b']; // skyblue, yellow
 
   // KPI Detail Modal Data Configurations
   const getCardModalDetails = (key) => {
