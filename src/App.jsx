@@ -6,7 +6,9 @@ import {
   getAvailableProvinces 
 } from './utils/dataHelper';
 import ExecutiveSummary from './components/ExecutiveSummary';
-import NetworkPerformance from './components/NetworkPerformance';
+import OperationalPatientJourney from './components/OperationalPatientJourney';
+import DiagnosticQualityHA from './components/DiagnosticQualityHA';
+import HALearningAndAIAlert from './components/HALearningAndAIAlert';
 import SubstanceAnalytics from './components/SubstanceAnalytics';
 import ReferralDestinationChart from './components/ReferralDestinationChart';
 import ClinicalAnalytics from './components/ClinicalAnalytics';
@@ -23,14 +25,17 @@ import {
   TrendingUp,
   AlertCircle,
   Pill,
-  Building2
+  Building2,
+  Award,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 
 export default function App() {
   // Active Filters & Navigation State
   const [year, setYear] = useState('2568'); // default year
   const [province, setProvince] = useState('All');
-  const [activeLevel, setActiveLevel] = useState('1'); // '1' to '6'
+  const [activeLevel, setActiveLevel] = useState('1'); // '1' to '7'
   
   // Data State
   const [allData, setAllData] = useState({ '2566': [], '2567': [], '2568': [], '2569': [] });
@@ -96,14 +101,36 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Header */}
-      <header className="app-header">
+      {/* Top Header with SMART Referral Intelligence Branding */}
+      <header className="app-header" style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+        color: 'white',
+        padding: '1.25rem 1.5rem',
+        borderRadius: '16px',
+        marginBottom: '1.5rem',
+        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.3)'
+      }}>
         <div className="header-title-section">
-          <h1>
-            <Activity size={24} style={{ color: 'var(--color-primary)' }} />
-            Referral Clinical Dashboard
-          </h1>
-          <p>ระบบติดตามผลการคัดกรองและการเข้าสู่ระบบบริการแบบหมุนเวียน (Referral Loop) โรงพยาบาลธัญญารักษ์ขอนแก่น</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Zap size={26} color="#38bdf8" />
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'white', letterSpacing: '-0.02em' }}>
+              SMART Referral Intelligence Dashboard
+            </h1>
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(56, 189, 248, 0.2)',
+              color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.4)'
+            }}>
+              HA Re-accreditation Edition
+            </span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '4px 0 0 0', fontWeight: 500 }}>
+            "From Referral to Recovery" — รับส่งต่ออย่างไร้รอยต่อ ขับเคลื่อนด้วยข้อมูล พัฒนาคุณภาพด้วยการเรียนรู้ (โรงพยาบาลธัญญารักษ์ขอนแก่น)
+          </p>
         </div>
         
         <div className="header-actions">
@@ -114,15 +141,15 @@ export default function App() {
               alignItems: 'center',
               gap: '0.4rem',
               fontSize: '0.775rem',
-              fontWeight: 500,
-              padding: '0.4rem 0.75rem',
+              fontWeight: 600,
+              padding: '0.4rem 0.85rem',
               borderRadius: '20px',
-              backgroundColor: isLive ? 'var(--color-green-light)' : 'var(--color-yellow-light)',
-              color: isLive ? 'var(--color-green)' : 'var(--color-yellow)',
-              border: `1px solid ${isLive ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`
+              backgroundColor: isLive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+              color: isLive ? '#34d399' : '#fbbf24',
+              border: `1px solid ${isLive ? 'rgba(52, 211, 153, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`
             }}
           >
-            <Database size={12} />
+            <Database size={13} />
             <span>{isLive ? 'Live: Google Sheet' : 'Offline: Local Database'}</span>
           </div>
 
@@ -131,6 +158,7 @@ export default function App() {
             onClick={handleSync} 
             className={`btn btn-secondary ${syncing ? 'btn-syncing' : ''}`}
             disabled={syncing}
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', color: 'white', borderColor: 'rgba(255, 255, 255, 0.2)' }}
           >
             <RefreshCw size={14} className={syncing ? 'spinner' : ''} />
             <span>{syncing ? 'กำลังซิงค์...' : 'ดึงข้อมูลล่าสุด'}</span>
@@ -149,7 +177,7 @@ export default function App() {
           borderRadius: '12px',
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-sm)',
-          marginBottom: '2rem',
+          marginBottom: '1.5rem',
           alignItems: 'center'
         }}
       >
@@ -208,46 +236,53 @@ export default function App() {
         )}
       </div>
 
-      {/* Navigation Tabs */}
-      <nav className="tabs-navigation" style={{ maxWidth: '100%', flexWrap: 'wrap' }}>
+      {/* Navigation Tabs - 4 Core HA Master Levels */}
+      <nav className="tabs-navigation" style={{ maxWidth: '100%', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <button 
           className={`tab-btn ${activeLevel === '1' ? 'active' : ''}`}
           onClick={() => setActiveLevel('1')}
         >
           <Activity size={16} />
-          ภาพรวมผู้บริหาร (Overview)
+          Level 1: Executive Dashboard (ผู้บริหาร)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '2' ? 'active' : ''}`}
           onClick={() => setActiveLevel('2')}
         >
           <Network size={16} />
-          แผนที่เครือข่ายจังหวัด (Network Map)
+          Level 2: Operational & Patient Journey
         </button>
         <button 
           className={`tab-btn ${activeLevel === '3' ? 'active' : ''}`}
           onClick={() => setActiveLevel('3')}
         >
-          <Pill size={16} />
-          สารเสพติด & ภาวะทางกาย (Substance)
+          <Award size={16} />
+          Level 3: Diagnostic Quality (HA ⭐⭐)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '4' ? 'active' : ''}`}
           onClick={() => setActiveLevel('4')}
         >
-          <Building2 size={16} />
-          เส้นทางส่งต่อ & หอผู้ป่วย (Referral Flow)
+          <ShieldCheck size={16} />
+          Level 4: HA Learning & AI Alert (HA ⭐⭐⭐)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '5' ? 'active' : ''}`}
           onClick={() => setActiveLevel('5')}
         >
-          <TrendingUp size={16} />
-          วิเคราะห์ทำนายเชิงลึก (Analytics)
+          <Pill size={16} />
+          สารเสพติด & ภาวะทางกาย
         </button>
         <button 
           className={`tab-btn ${activeLevel === '6' ? 'active' : ''}`}
           onClick={() => setActiveLevel('6')}
+        >
+          <Building2 size={16} />
+          เส้นทางส่งต่อ & หอผู้ป่วย
+        </button>
+        <button 
+          className={`tab-btn ${activeLevel === '7' ? 'active' : ''}`}
+          onClick={() => setActiveLevel('7')}
         >
           <AlertCircle size={16} />
           ติดตามเคส (Case Tracking)
@@ -258,7 +293,7 @@ export default function App() {
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem' }}>
           <div className="spinner" style={{ width: '40px', height: '40px', borderLeftColor: 'var(--color-primary)', borderWidth: '4px' }}></div>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>กำลังโหลดและประมวลผลข้อมูล 4 ปีงบประมาณ...</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>กำลังประมวลผลข้อมูล SMART Referral Intelligence...</p>
         </div>
       ) : (
         /* Main Content */
@@ -272,7 +307,8 @@ export default function App() {
           )}
 
           {activeLevel === '2' && (
-            <NetworkPerformance 
+            <OperationalPatientJourney 
+              journeyData={computedMetrics.patientJourney} 
               provinceStats={computedMetrics.provinceStats} 
               onSelectProvince={setProvince} 
               activeProvince={province} 
@@ -280,26 +316,32 @@ export default function App() {
           )}
 
           {activeLevel === '3' && (
-            <SubstanceAnalytics 
+            <DiagnosticQualityHA 
+              diagnosticData={computedMetrics.diagnosticQuality} 
               data={currentYearData} 
             />
           )}
 
           {activeLevel === '4' && (
+            <HALearningAndAIAlert 
+              aiAlerts={computedMetrics.aiAlerts} 
+              continuityOfCare={computedMetrics.continuityOfCare} 
+            />
+          )}
+
+          {activeLevel === '5' && (
+            <SubstanceAnalytics 
+              data={currentYearData} 
+            />
+          )}
+
+          {activeLevel === '6' && (
             <ReferralDestinationChart 
               data={currentYearData} 
             />
           )}
 
-          {activeLevel === '5' && (
-            <ClinicalAnalytics 
-              yoyData={yoyData} 
-              advancedMetrics={computedMetrics.advanced} 
-              province={province} 
-            />
-          )}
-
-          {activeLevel === '6' && (
+          {activeLevel === '7' && (
             <CaseTracking 
               data={currentYearData} 
               provinceFilter={province} 
@@ -311,3 +353,4 @@ export default function App() {
     </div>
   );
 }
+
