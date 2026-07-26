@@ -236,56 +236,56 @@ export default function App() {
         )}
       </div>
 
-      {/* Navigation Tabs - 4 Core HA Master Levels */}
-      <nav className="tabs-navigation" style={{ maxWidth: '100%', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      {/* Navigation Tabs - 7 Concise Topics */}
+      <nav className="tabs-navigation">
         <button 
           className={`tab-btn ${activeLevel === '1' ? 'active' : ''}`}
           onClick={() => setActiveLevel('1')}
         >
-          <Activity size={16} />
-          Level 1: Executive Dashboard (ผู้บริหาร)
+          <Activity size={15} />
+          <span>ภาพรวมผู้บริหาร</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '2' ? 'active' : ''}`}
           onClick={() => setActiveLevel('2')}
         >
-          <Network size={16} />
-          Level 2: Operational & Patient Journey
+          <Network size={15} />
+          <span>เส้นทางผู้ป่วย</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '3' ? 'active' : ''}`}
           onClick={() => setActiveLevel('3')}
         >
-          <Award size={16} />
-          Level 3: Diagnostic Quality (HA ⭐⭐)
+          <Award size={15} />
+          <span>วินิจฉัย & ความเสี่ยง</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '4' ? 'active' : ''}`}
           onClick={() => setActiveLevel('4')}
         >
-          <ShieldCheck size={16} />
-          Level 4: HA Learning & AI Alert (HA ⭐⭐⭐)
+          <ShieldCheck size={15} />
+          <span>คุณภาพ & เตือนภัย AI</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '5' ? 'active' : ''}`}
           onClick={() => setActiveLevel('5')}
         >
-          <Pill size={16} />
-          สารเสพติด & ภาวะทางกาย
+          <Pill size={15} />
+          <span>สารเสพติด & กาย</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '6' ? 'active' : ''}`}
           onClick={() => setActiveLevel('6')}
         >
-          <Building2 size={16} />
-          เส้นทางส่งต่อ & หอผู้ป่วย
+          <Building2 size={15} />
+          <span>ส่งต่อ & หอผู้ป่วย</span>
         </button>
         <button 
           className={`tab-btn ${activeLevel === '7' ? 'active' : ''}`}
           onClick={() => setActiveLevel('7')}
         >
-          <AlertCircle size={16} />
-          ติดตามเคส (Case Tracking)
+          <AlertCircle size={15} />
+          <span>ติดตามเคส</span>
         </button>
       </nav>
 
