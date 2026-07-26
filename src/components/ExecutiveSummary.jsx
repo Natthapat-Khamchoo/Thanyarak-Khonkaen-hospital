@@ -92,36 +92,36 @@ export default function ExecutiveSummary({ metrics, year, province }) {
       {/* KPI Cards Grid */}
       <div className="cards-grid">
         <MetricCard
-          title="จำนวนผู้ป่วยส่งต่อทั้งหมด"
+          title="จำนวนเคสรวมทั้งหมด"
           value={totalReferrals}
           unit="ราย"
-          targetLabel="ผลการดำเนินงาน"
+          targetLabel="ข้อมูลรวมจากระบบ"
           status="pass"
           icon={Users}
         />
         <MetricCard
-          title="Referral Completion Rate"
-          value={completionRate.toFixed(1)}
-          unit="%"
-          targetLabel="เป้าหมาย ≥95%"
-          status={completionRate >= 95 ? 'pass' : 'warn'}
-          icon={CheckCircle}
-        />
-        <MetricCard
-          title="Follow-up Rate"
-          value={followUpRate.toFixed(1)}
-          unit="%"
-          targetLabel="เป้าหมาย ≥90%"
-          status={getFollowUpStatus(followUpRate)}
+          title="รับส่งต่อเข้า (Refer In)"
+          value={metrics.executiveKPIs?.referIn || 0}
+          unit="ราย"
+          targetLabel="รับเข้าบำบัดรักษา"
+          status="pass"
           icon={UserCheck}
         />
         <MetricCard
-          title="Loss to Follow-up"
-          value={lossToFollowUpRate.toFixed(1)}
-          unit="%"
-          targetLabel="เป้าหมาย <10%"
-          status={getLossStatus(lossToFollowUpRate)}
+          title="ส่งต่อออก (Refer Out)"
+          value={metrics.executiveKPIs?.referOut || 0}
+          unit="ราย"
+          targetLabel="ส่งต่อ รพ.ศูนย์/แพทย์"
+          status="warn"
           icon={UserX}
+        />
+        <MetricCard
+          title="ส่งกลับ (Refer Back)"
+          value={metrics.executiveKPIs?.referBack || 0}
+          unit="ราย"
+          targetLabel="ส่งกลับติดตามในชุมชน"
+          status="pass"
+          icon={CheckCircle}
         />
         <MetricCard
           title="Readmission 28 วัน"
@@ -137,14 +137,6 @@ export default function ExecutiveSummary({ metrics, year, province }) {
           unit="ครั้ง"
           targetLabel="เป้าหมาย 0"
           status={incidents === 0 ? 'pass' : 'danger'}
-          icon={AlertTriangle}
-        />
-        <MetricCard
-          title="Severe Adverse Event"
-          value={severeAdverseEvents}
-          unit="ครั้ง"
-          targetLabel="เป้าหมาย 0"
-          status={severeAdverseEvents === 0 ? 'pass' : 'danger'}
           icon={AlertTriangle}
         />
       </div>
