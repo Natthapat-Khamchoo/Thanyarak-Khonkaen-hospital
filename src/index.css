@@ -238,12 +238,25 @@ body {
   border: 1px solid rgba(56, 189, 248, 0.4);
 }
 
-/* Cards Grid */
+/* Cards Grid - Single Row Symmetrical Layout */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1rem;
   margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+@media (max-width: 1280px) {
+  .cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Liquid Glass KPI Card */

@@ -9,7 +9,8 @@ export default function MetricCard({
   status = 'pass', // pass, warn, danger
   icon: Icon,
   trendValue = null,
-  trendDirection = null // 'up', 'down', 'neutral'
+  trendDirection = null, // 'up', 'down', 'neutral'
+  onClick
 }) {
   const getStatusText = (s) => {
     switch (s) {
@@ -21,7 +22,11 @@ export default function MetricCard({
   };
 
   return (
-    <div className={`kpi-card status-${status} animate-fade-in`}>
+    <div 
+      className={`kpi-card status-${status} animate-fade-in ${onClick ? 'clickable' : ''}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       <div>
         <div className="kpi-header">
           <span>{title}</span>
