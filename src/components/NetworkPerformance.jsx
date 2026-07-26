@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Network, HelpCircle, ArrowRight, Lightbulb, Map, FileText, CheckCircle2, AlertTriangle, AlertCircle, Info } from 'lucide-react';
-import thailandPaths from '../data/thailand-map-paths.json';
+import LeafletMap from './LeafletMap';
 
 // Mapping from SVG IDs to Thai Province Names in our database
 const provinceIdToThai = {
@@ -201,12 +201,12 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
           </div>
         </div>
 
-        {/* Right Side: Map Visualization (Full Map of Thailand) */}
+        {/* Right Side: Interactive Leaflet Map Visualization */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '520px' }}>
           <div className="panel-header">
             <h2 className="panel-title">
               <Map size={18} />
-              แผนที่ความร้อนประเทศไทย (Thailand Heat Map)
+              แผนที่ตอบโต้เครือข่ายส่งต่อ (Interactive Leaflet Map)
             </h2>
           </div>
 
@@ -235,139 +235,23 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
             </button>
           </div>
 
-          {/* SVG Map Container */}
+          {/* Interactive Leaflet Map Container */}
           <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
             flexGrow: 1, 
-            height: '350px',
+            minHeight: '380px',
             backgroundColor: 'var(--bg-primary)', 
             borderRadius: '12px', 
-            padding: '1rem', 
+            overflow: 'hidden',
             border: '1px solid var(--color-border)',
-            position: 'relative',
-            overflow: 'hidden'
+            position: 'relative'
           }}>
-            <svg viewBox="270 130 220 250" style={{ width: '100%', height: '100%', maxHeight: '340px' }}>
-              {thailandPaths.map(path => {
-                const thaiName = provinceIdToThai[path.id];
-                const isActive = !!thaiName;
-                
-                // Color configuration
-                let fill = '#f8fafc'; // slate 50 (default background)
-                let stroke = '#cbd5e1'; // slate 300
-                let strokeWidth = 1.5;
-                
-                if (isActive) {
-                  const stat = provinceStats.find(s => s.province === thaiName);
-                  if (stat) {
-                    const statusDetails = getProvinceStatus(stat, mapMetric);
-                    fill = statusDetails.bg;
-                    const isSelected = activeProvince === thaiName;
-                    
-                    if (isSelected) {
-                      stroke = 'var(--color-primary-dark)';
-                      strokeWidth = 4;
-                    } else {
-                      stroke = statusDetails.color;
-                      strokeWidth = 2;
-                    }
-                  }
-                }
-
-                return (
-                  <path
-                    key={path.id}
-                    d={path.d}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={strokeWidth}
-                    style={{ 
-                      transition: 'all 0.15s ease',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={() => handleMouseEnter(path.id, path.name)}
-                    onMouseLeave={handleMouseLeave}
-                    onClick={() => {
-                      if (isActive) {
-                        const isSelected = activeProvince === thaiName;
-                        onSelectProvince(isSelected ? 'All' : thaiName);
-                      }
-                    }}
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Dynamic Hover / Active Province Details Overlay inside the Map Card */}
-            <div style={{
-              position: 'absolute',
-              bottom: '10px',
-              left: '10px',
-              right: '10px',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '8px',
-              padding: '0.6rem 0.8rem',
-              boxShadow: 'var(--shadow-md)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.8rem',
-              transition: 'all 0.2s ease',
-              minHeight: '48px'
-            }}>
-              {hoveredProvince ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-                  <div 
-                    style={{ 
-                      width: '8px', 
-                      height: '8px', 
-                      borderRadius: '50%', 
-                      backgroundColor: hoveredProvince.isActive ? hoveredProvince.statusColor : '#cbd5e1' 
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--color-text-dark)' }}>
-                      จังหวัด{hoveredProvince.name}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                      {mapMetric === 'fuRate' ? 'อัตราติดตามสำเร็จ' : mapMetric === 'lostRate' ? 'อัตรา Lost FU' : 'อัตราการกลับรักษาซ้ำ'}:{' '}
-                      <span style={{ fontWeight: 700, color: hoveredProvince.isActive ? 'var(--color-text-dark)' : 'var(--color-text-muted)' }}>
-                        {hoveredProvince.val}
-                      </span>
-                      {hoveredProvince.isActive && ` (${hoveredProvince.statusLabel})`}
-                    </div>
-                  </div>
-                  {hoveredProvince.isActive && (
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-primary-dark)', fontWeight: 600 }}>
-                      คลิกเพื่อกรองข้อมูล ➜
-                    </span>
-                  )}
-                </div>
-              ) : activeProvince !== 'All' ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-primary)' }} />
-                    <span style={{ fontWeight: 600 }}>กำลังกรองแสดงเฉพาะ จังหวัด{activeProvince}</span>
-                  </div>
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem', borderRadius: '4px' }}
-                    onClick={() => onSelectProvince('All')}
-                  >
-                    แสดงทั้งหมด
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-text-muted)' }}>
-                  <Info size={14} style={{ color: 'var(--color-primary)' }} />
-                  <span>เลื่อนเมาส์ชี้บนแผนที่เพื่อดูข้อมูลรายจังหวัด (จังหวัดสีฟ้าคือจังหวัดในเครือข่ายส่งต่อ)</span>
-                </div>
-              )}
-            </div>
+            <LeafletMap 
+              provinceStats={provinceStats} 
+              activeProvince={activeProvince} 
+              onSelectProvince={onSelectProvince} 
+              mapMetric={mapMetric} 
+              getProvinceStatus={getProvinceStatus} 
+            />
           </div>
         </div>
 
