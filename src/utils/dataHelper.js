@@ -3,6 +3,9 @@ import fallbackData from '../data/fallback-data.json';
 const GOOGLE_SHEET_ID = '15eaW702CytEio_PlIM-JmOG9h-AQvwL7JTnfl1ALgBk';
 
 const SHEET_TABS = [
+  'Master Data (Refer in)',
+  'Master Data (Refer back)',
+  'Master Data (Refer out)',
   'master data refer in',
   'master data refer out'
 ];
