@@ -19,19 +19,22 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
   const [hoveredProvince, setHoveredProvince] = useState(null); // { id, name, val, status, isActive }
 
   // Threshold calculators for cell colors
-  const getFollowUpStatus = (rate) => {
+  const getFollowUpStatus = (rate, total = 1) => {
+    if (total === 0) return { label: 'ไม่มีข้อมูล (0 ราย)', color: '#64748b', bg: '#f1f5f9', code: 'nodata' };
     if (rate >= 80) return { label: 'ผ่านเกณฑ์ (≥80%)', color: 'var(--color-green)', bg: 'var(--color-green-light)', code: 'green' };
     if (rate >= 70) return { label: 'เฝ้าระวัง (70-79%)', color: 'var(--color-yellow)', bg: 'var(--color-yellow-light)', code: 'yellow' };
     return { label: 'ต้องปรับปรุง (<70%)', color: 'var(--color-red)', bg: 'var(--color-red-light)', code: 'red' };
   };
 
-  const getLostStatus = (rate) => {
+  const getLostStatus = (rate, total = 1) => {
+    if (total === 0) return { label: 'ไม่มีข้อมูล (0 ราย)', color: '#64748b', bg: '#f1f5f9', code: 'nodata' };
     if (rate < 15) return { label: 'ผ่านเกณฑ์ (<15%)', color: 'var(--color-green)', bg: 'var(--color-green-light)', code: 'green' };
     if (rate < 25) return { label: 'เฝ้าระวัง (15-24%)', color: 'var(--color-yellow)', bg: 'var(--color-yellow-light)', code: 'yellow' };
     return { label: 'ต้องปรับปรุง (≥25%)', color: 'var(--color-red)', bg: 'var(--color-red-light)', code: 'red' };
   };
 
-  const getReadmissionStatus = (rate) => {
+  const getReadmissionStatus = (rate, total = 1) => {
+    if (total === 0) return { label: 'ไม่มีข้อมูล (0 ราย)', color: '#64748b', bg: '#f1f5f9', code: 'nodata' };
     if (rate < 5) return { label: 'ผ่านเกณฑ์ (<5%)', color: 'var(--color-green)', bg: 'var(--color-green-light)', code: 'green' };
     if (rate < 10) return { label: 'เฝ้าระวัง (5-9%)', color: 'var(--color-yellow)', bg: 'var(--color-yellow-light)', code: 'yellow' };
     return { label: 'ต้องปรับปรุง (≥10%)', color: 'var(--color-red)', bg: 'var(--color-red-light)', code: 'red' };
@@ -39,17 +42,27 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
 
   // Get status details based on selected metric
   const getProvinceStatus = (stat, metric) => {
-    if (metric === 'fuRate') return getFollowUpStatus(stat.fuRate);
-    if (metric === 'lostRate') return getLostStatus(stat.lostRate);
-    return getReadmissionStatus(stat.readmRate);
+    const total = stat ? stat.total : 0;
+    const rate = stat ? stat[metric] || 0 : 0;
+    if (metric === 'fuRate') return getFollowUpStatus(rate, total);
+    if (metric === 'lostRate') return getLostStatus(rate, total);
+    return getReadmissionStatus(rate, total);
   };
 
   // Generate recommendations dynamically based on stats
   const generateRecommendations = () => {
     return provinceStats.map(stat => {
       const recs = [];
-      const fu = getFollowUpStatus(stat.fuRate);
-      const readm = getReadmissionStatus(stat.readmRate);
+      if (stat.total === 0) {
+        recs.push({
+          type: 'info',
+          text: `ยังไม่มีเคสส่งต่อจากจังหวัด${stat.province} ในปีงบประมาณที่เลือก`
+        });
+        return { province: stat.province, recs };
+      }
+
+      const fu = getFollowUpStatus(stat.fuRate, stat.total);
+      const readm = getReadmissionStatus(stat.readmRate, stat.total);
 
       if (fu.code === 'red') {
         recs.push({
@@ -105,7 +118,7 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
         setHoveredProvince({
           id: pathId,
           name: thaiName,
-          val: `${stat[mapMetric].toFixed(1)}%`,
+          val: stat.total === 0 ? 'ไม่มีข้อมูล (0 ราย)' : `${stat[mapMetric].toFixed(1)}%`,
           valRaw: stat[mapMetric],
           statusLabel: statusDetails.label,
           statusColor: statusDetails.color,
@@ -162,6 +175,11 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
                 <tbody>
                   {provinceStats.map((stat) => {
                     const isSelected = activeProvince === stat.province;
+                    const fuStatus = getFollowUpStatus(stat.fuRate, stat.total);
+                    const lostStatus = getLostStatus(stat.lostRate, stat.total);
+                    const readmStatus = getReadmissionStatus(stat.readmRate, stat.total);
+                    const isNoData = stat.total === 0;
+
                     return (
                       <tr 
                         key={stat.province} 
@@ -177,14 +195,14 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
                         <td style={{ textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
                           {stat.total.toLocaleString()}
                         </td>
-                        <td className={`heatmap-cell ${getFollowUpStatus(stat.fuRate).code === 'green' ? 'status-green' : getFollowUpStatus(stat.fuRate).code === 'yellow' ? 'status-yellow' : 'status-red'}`}>
-                          {stat.fuRate.toFixed(1)}%
+                        <td className={`heatmap-cell status-${fuStatus.code}`}>
+                          {isNoData ? '-' : `${stat.fuRate.toFixed(1)}%`}
                         </td>
-                        <td className={`heatmap-cell ${getLostStatus(stat.lostRate).code === 'green' ? 'status-green' : getLostStatus(stat.lostRate).code === 'yellow' ? 'status-yellow' : 'status-red'}`}>
-                          {stat.lostRate.toFixed(1)}%
+                        <td className={`heatmap-cell status-${lostStatus.code}`}>
+                          {isNoData ? '-' : `${stat.lostRate.toFixed(1)}%`}
                         </td>
-                        <td className={`heatmap-cell ${getReadmissionStatus(stat.readmRate).code === 'green' ? 'status-green' : getReadmissionStatus(stat.readmRate).code === 'yellow' ? 'status-yellow' : 'status-red'}`}>
-                          {stat.readmRate.toFixed(1)}%
+                        <td className={`heatmap-cell status-${readmStatus.code}`}>
+                          {isNoData ? '-' : `${stat.readmRate.toFixed(1)}%`}
                         </td>
                       </tr>
                     );
@@ -198,6 +216,7 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
             <div className="legend-item"><div className="legend-color green"></div><span>ผ่านเกณฑ์</span></div>
             <div className="legend-item"><div className="legend-color yellow"></div><span>เฝ้าระวัง</span></div>
             <div className="legend-item"><div className="legend-color red"></div><span>ต้องปรับปรุง</span></div>
+            <div className="legend-item"><div className="legend-color nodata" style={{ backgroundColor: '#94a3b8' }}></div><span>ไม่มีข้อมูล (0 ราย)</span></div>
           </div>
         </div>
 

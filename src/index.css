@@ -391,6 +391,8 @@ body {
 .heatmap-cell.status-yellow::after { background-color: var(--color-yellow); opacity: 0.12; }
 .heatmap-cell.status-red { color: var(--color-red); }
 .heatmap-cell.status-red::after { background-color: var(--color-red); opacity: 0.12; }
+.heatmap-cell.status-nodata { color: #64748b; }
+.heatmap-cell.status-nodata::after { background-color: #94a3b8; opacity: 0.12; }
 
 /* Legend */
 .legend-container {

@@ -110,12 +110,18 @@ export default function LeafletMap({
       const coords = PROVINCE_COORDINATES[stat.province];
       if (!polygonCoords || !coords) return;
 
+      const isNoData = stat.total === 0;
       const statusDetails = getProvinceStatus(stat, mapMetric);
       const isSelected = activeProvince === stat.province;
 
       let colorHex = '#10b981'; // green
-      if (statusDetails.code === 'yellow') colorHex = '#f59e0b';
-      if (statusDetails.code === 'red') colorHex = '#ef4444';
+      if (isNoData) {
+        colorHex = '#94a3b8'; // slate grey
+      } else if (statusDetails.code === 'yellow') {
+        colorHex = '#f59e0b';
+      } else if (statusDetails.code === 'red') {
+        colorHex = '#ef4444';
+      }
 
       let metricLabel = 'อัตราการติดตามสำเร็จ';
       if (mapMetric === 'lostRate') metricLabel = 'อัตรา Lost FU';
@@ -124,10 +130,10 @@ export default function LeafletMap({
       // Choropleth Polygon
       const polygon = L.polygon(polygonCoords, {
         color: isSelected ? '#0284c7' : colorHex,
-        weight: isSelected ? 4 : 2,
-        fillColor: colorHex,
-        fillOpacity: isSelected ? 0.65 : 0.4,
-        dashArray: isSelected ? null : '4'
+        weight: isSelected ? 4 : (isNoData ? 1.5 : 2),
+        fillColor: isNoData ? '#f1f5f9' : colorHex,
+        fillOpacity: isNoData ? 0.4 : (isSelected ? 0.65 : 0.4),
+        dashArray: isNoData ? '4, 4' : (isSelected ? null : '4')
       });
 
       // Hover Effects
@@ -142,8 +148,8 @@ export default function LeafletMap({
       polygon.on('mouseout', function () {
         polygon.setStyle({
           color: isSelected ? '#0284c7' : colorHex,
-          weight: isSelected ? 4 : 2,
-          fillOpacity: isSelected ? 0.65 : 0.4
+          weight: isSelected ? 4 : (isNoData ? 1.5 : 2),
+          fillOpacity: isNoData ? 0.4 : (isSelected ? 0.65 : 0.4)
         });
       });
 
@@ -151,7 +157,7 @@ export default function LeafletMap({
       polygon.bindTooltip(
         `<div>
           <strong style="font-size:14px;">จังหวัด${stat.province}</strong><br/>
-          <span>${metricLabel}: <strong>${stat[mapMetric].toFixed(1)}%</strong></span><br/>
+          <span>${isNoData ? 'ไม่มีข้อมูลการส่งต่อในปีงบประมาณนี้' : `${metricLabel}: <strong>${stat[mapMetric].toFixed(1)}%</strong>`}</span><br/>
           <small style="color:${colorHex}; font-weight:600;">${statusDetails.label}</small>
         </div>`,
         { permanent: false, direction: 'center' }
@@ -167,10 +173,12 @@ export default function LeafletMap({
         </div>
         <div style="font-size:12px; line-height:1.6; color:#334155;">
           • เคสส่งต่อทั้งหมด: <strong>${stat.total} ราย</strong><br/>
+          ${isNoData ? '<span style="color:#64748b;">• ยังไม่มีข้อมูลการส่งต่อในปีงบประมาณที่เลือก</span>' : `
           • ติดตามสำเร็จ: <strong>${stat.fuRate.toFixed(1)}%</strong><br/>
           • Lost FU: <strong>${stat.lostRate.toFixed(1)}%</strong><br/>
           • Readmit 28 วัน: <strong>${stat.readmRate.toFixed(1)}%</strong><br/>
           • สถานะ: <span style="color:${colorHex}; font-weight:700;">${statusDetails.label}</span>
+          `}
         </div>
         <button id="filter-btn-${stat.province}" style="
           margin-top: 8px;
@@ -211,7 +219,7 @@ export default function LeafletMap({
         className: 'custom-leaflet-label',
         html: `<div style="
           background: ${isSelected ? '#0284c7' : 'rgba(255, 255, 255, 0.95)'};
-          color: ${isSelected ? '#ffffff' : '#0f172a'};
+          color: ${isSelected ? '#ffffff' : (isNoData ? '#64748b' : '#0f172a')};
           border: 2px solid ${colorHex};
           padding: 4px 8px;
           border-radius: 16px;
@@ -225,7 +233,7 @@ export default function LeafletMap({
           gap: 5px;
         ">
           <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${colorHex}; display: inline-block;"></span>
-          ${stat.province}: ${stat[mapMetric].toFixed(1)}%
+          ${stat.province}: ${isNoData ? 'ไม่มีข้อมูล' : `${stat[mapMetric].toFixed(1)}%`}
         </div>`,
         iconSize: [110, 28],
         iconAnchor: [55, 14]
@@ -308,9 +316,13 @@ export default function LeafletMap({
           <span style={{ width: '12px', height: '12px', backgroundColor: '#f59e0b', borderRadius: '3px', display: 'inline-block' }}></span>
           <span>เฝ้าระวัง (70-79%)</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
           <span style={{ width: '12px', height: '12px', backgroundColor: '#ef4444', borderRadius: '3px', display: 'inline-block' }}></span>
           <span>ต้องปรับปรุง (&lt;70%)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '12px', height: '12px', backgroundColor: '#94a3b8', borderRadius: '3px', display: 'inline-block' }}></span>
+          <span>ไม่มีข้อมูลการส่งต่อ (0 ราย)</span>
         </div>
       </div>
     </div>
