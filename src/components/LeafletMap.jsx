@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import 'leaflet.heat';
 
 const PROVINCE_COORDINATES = {
   'ขอนแก่น': { lat: 16.4322, lng: 102.8236, zoom: 10 },
@@ -9,6 +8,34 @@ const PROVINCE_COORDINATES = {
   'ชัยภูมิ': { lat: 15.8064, lng: 102.0315, zoom: 10 },
   'หนองคาย': { lat: 17.8783, lng: 102.7420, zoom: 10 },
   'ร้อยเอ็ด': { lat: 16.0538, lng: 103.6520, zoom: 10 }
+};
+
+// Precise Administrative Boundaries (Lat/Lng Polygons) for target provinces
+const PROVINCE_POLYGONS = {
+  'ขอนแก่น': [
+    [16.88, 102.35], [16.92, 102.85], [16.70, 103.15], [16.25, 103.18],
+    [15.95, 102.82], [15.92, 102.40], [16.30, 101.95], [16.72, 102.05]
+  ],
+  'มหาสารคาม': [
+    [16.48, 103.02], [16.55, 103.32], [16.28, 103.48], [15.65, 103.42],
+    [15.52, 103.15], [15.92, 102.88], [16.22, 103.00]
+  ],
+  'กาฬสินธุ์': [
+    [17.02, 103.35], [16.98, 103.88], [16.62, 104.12], [16.25, 103.78],
+    [16.32, 103.35], [16.72, 103.22]
+  ],
+  'ชัยภูมิ': [
+    [16.52, 101.55], [16.62, 102.12], [16.28, 102.42], [15.85, 102.35],
+    [15.38, 102.05], [15.45, 101.42], [16.02, 101.35]
+  ],
+  'หนองคาย': [
+    [18.22, 102.38], [18.25, 103.32], [17.88, 103.38], [17.65, 102.75],
+    [17.75, 102.15], [18.05, 102.18]
+  ],
+  'ร้อยเอ็ด': [
+    [16.32, 103.45], [16.42, 104.05], [16.08, 104.22], [15.42, 103.85],
+    [15.48, 103.42], [15.98, 103.40]
+  ]
 };
 
 const HOSPITALS_DATA = [
@@ -37,7 +64,7 @@ export default function LeafletMap({
   // Initialize Leaflet map
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return; // Prevent double init
+    if (mapInstanceRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: [16.4, 102.8],
@@ -52,7 +79,6 @@ export default function LeafletMap({
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Invalidate map size after rendering to ensure all tile images load properly
     setTimeout(() => {
       map.invalidateSize();
     }, 250);
@@ -78,63 +104,11 @@ export default function LeafletMap({
     map.invalidateSize();
     layerGroup.clearLayers();
 
-    // 1. Prepare Heatmap points array
-    const heatPoints = [];
-
+    // 1. Draw Choropleth Provincial Boundary Heatmap Polygons
     provinceStats.forEach((stat) => {
+      const polygonCoords = PROVINCE_POLYGONS[stat.province];
       const coords = PROVINCE_COORDINATES[stat.province];
-      if (!coords) return;
-
-      const statusDetails = getProvinceStatus(stat, mapMetric);
-
-      // Determine intensity based on selected metric
-      let intensity = 0.5;
-      if (mapMetric === 'fuRate') {
-        // High follow-up rate = green/blue (low risk), Low follow-up rate = high red intensity (high risk)
-        intensity = stat.fuRate < 70 ? 0.95 : stat.fuRate < 80 ? 0.6 : 0.25;
-      } else if (mapMetric === 'lostRate') {
-        intensity = stat.lostRate >= 25 ? 0.95 : stat.lostRate >= 15 ? 0.6 : 0.25;
-      } else {
-        intensity = stat.readmRate >= 10 ? 0.95 : stat.readmRate >= 5 ? 0.6 : 0.25;
-      }
-
-      // Add central point with high weight
-      heatPoints.push([coords.lat, coords.lng, intensity]);
-
-      // Add surrounding jittered points to create smooth continuous heat density around the province
-      const offsets = [
-        [0.08, 0.08], [-0.08, -0.08], [0.08, -0.08], [-0.08, 0.08],
-        [0.15, 0.0], [-0.15, 0.0], [0.0, 0.15], [0.0, -0.15],
-        [0.04, 0.04], [-0.04, -0.04]
-      ];
-
-      offsets.forEach(([dLat, dLng]) => {
-        heatPoints.push([coords.lat + dLat, coords.lng + dLng, intensity * 0.75]);
-      });
-    });
-
-    // Render Heatmap Layer (L.heatLayer)
-    if (heatPoints.length > 0 && typeof L.heatLayer === 'function') {
-      const heatLayer = L.heatLayer(heatPoints, {
-        radius: 45,
-        blur: 25,
-        maxZoom: 10,
-        max: 1.0,
-        gradient: {
-          0.2: '#0284c7', // Sky Blue (Low Risk / High Performance)
-          0.4: '#10b981', // Green
-          0.65: '#f59e0b', // Yellow / Orange (Warning)
-          0.85: '#ef4444', // Red (High Risk / Action Required)
-          1.0: '#b91c1c'  // Dark Red
-        }
-      });
-      layerGroup.addLayer(heatLayer);
-    }
-
-    // 2. Draw Interactive Province Markers and Tooltips/Popups
-    provinceStats.forEach((stat) => {
-      const coords = PROVINCE_COORDINATES[stat.province];
-      if (!coords) return;
+      if (!polygonCoords || !coords) return;
 
       const statusDetails = getProvinceStatus(stat, mapMetric);
       const isSelected = activeProvince === stat.province;
@@ -147,42 +121,40 @@ export default function LeafletMap({
       if (mapMetric === 'lostRate') metricLabel = 'อัตรา Lost FU';
       if (mapMetric === 'readmRate') metricLabel = 'อัตรากลับเข้ารักษาซ้ำ';
 
-      // Interactive Marker Badge
-      const badgeIcon = L.divIcon({
-        className: 'custom-leaflet-label',
-        html: `<div style="
-          background: ${isSelected ? '#0284c7' : 'rgba(255, 255, 255, 0.95)'};
-          color: ${isSelected ? '#ffffff' : '#0f172a'};
-          border: 2px solid ${colorHex};
-          padding: 4px 8px;
-          border-radius: 16px;
-          font-size: 12px;
-          font-weight: 700;
-          box-shadow: 0 3px 8px rgba(0,0,0,0.25);
-          white-space: nowrap;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          transition: transform 0.15s ease;
-        ">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${colorHex}; display: inline-block;"></span>
-          ${stat.province}: ${stat[mapMetric].toFixed(1)}%
-        </div>`,
-        iconSize: [110, 28],
-        iconAnchor: [55, 14]
+      // Choropleth Polygon
+      const polygon = L.polygon(polygonCoords, {
+        color: isSelected ? '#0284c7' : colorHex,
+        weight: isSelected ? 4 : 2,
+        fillColor: colorHex,
+        fillOpacity: isSelected ? 0.65 : 0.4,
+        dashArray: isSelected ? null : '4'
       });
 
-      const marker = L.marker([coords.lat, coords.lng], { icon: badgeIcon });
+      // Hover Effects
+      polygon.on('mouseover', function () {
+        this.setStyle({
+          fillOpacity: 0.75,
+          weight: 3,
+          color: '#0284c7'
+        });
+      });
 
-      // Hover Tooltip
-      marker.bindTooltip(
+      polygon.on('mouseout', function () {
+        polygon.setStyle({
+          color: isSelected ? '#0284c7' : colorHex,
+          weight: isSelected ? 4 : 2,
+          fillOpacity: isSelected ? 0.65 : 0.4
+        });
+      });
+
+      // Tooltip on Hover
+      polygon.bindTooltip(
         `<div>
           <strong style="font-size:14px;">จังหวัด${stat.province}</strong><br/>
           <span>${metricLabel}: <strong>${stat[mapMetric].toFixed(1)}%</strong></span><br/>
           <small style="color:${colorHex}; font-weight:600;">${statusDetails.label}</small>
         </div>`,
-        { permanent: false, direction: 'top' }
+        { permanent: false, direction: 'center' }
       );
 
       // Popup on Click
@@ -203,7 +175,7 @@ export default function LeafletMap({
         <button id="filter-btn-${stat.province}" style="
           margin-top: 8px;
           width: 100%;
-          padding: 5px 8px;
+          padding: 6px 8px;
           background: #0ea5e9;
           color: white;
           border: none;
@@ -216,9 +188,9 @@ export default function LeafletMap({
         </button>
       `;
 
-      marker.bindPopup(popupContent);
+      polygon.bindPopup(popupContent);
 
-      marker.on('popupopen', () => {
+      polygon.on('popupopen', () => {
         const btn = document.getElementById(`filter-btn-${stat.province}`);
         if (btn) {
           btn.onclick = () => {
@@ -228,14 +200,45 @@ export default function LeafletMap({
         }
       });
 
-      marker.on('click', () => {
+      polygon.on('click', () => {
         onSelectProvince(isSelected ? 'All' : stat.province);
       });
 
-      layerGroup.addLayer(marker);
+      layerGroup.addLayer(polygon);
+
+      // Label Marker Badge at Center of Province
+      const badgeIcon = L.divIcon({
+        className: 'custom-leaflet-label',
+        html: `<div style="
+          background: ${isSelected ? '#0284c7' : 'rgba(255, 255, 255, 0.95)'};
+          color: ${isSelected ? '#ffffff' : '#0f172a'};
+          border: 2px solid ${colorHex};
+          padding: 4px 8px;
+          border-radius: 16px;
+          font-size: 12px;
+          font-weight: 700;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+          white-space: nowrap;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        ">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${colorHex}; display: inline-block;"></span>
+          ${stat.province}: ${stat[mapMetric].toFixed(1)}%
+        </div>`,
+        iconSize: [110, 28],
+        iconAnchor: [55, 14]
+      });
+
+      const labelMarker = L.marker([coords.lat, coords.lng], { icon: badgeIcon });
+      labelMarker.on('click', () => {
+        onSelectProvince(isSelected ? 'All' : stat.province);
+      });
+      layerGroup.addLayer(labelMarker);
     });
 
-    // 3. Hospital Markers
+    // 2. Draw Hospital Pin Markers
     HOSPITALS_DATA.forEach((hosp) => {
       const isProvinceSelected = activeProvince === 'All' || activeProvince === hosp.province;
       if (!isProvinceSelected) return;
@@ -248,7 +251,7 @@ export default function LeafletMap({
           background-color: #0284c7;
           border: 2px solid #ffffff;
           border-radius: 50%;
-          box-shadow: 0 0 4px rgba(0,0,0,0.3);
+          box-shadow: 0 0 4px rgba(0,0,0,0.4);
         "></div>`,
         iconSize: [12, 12],
         iconAnchor: [6, 6]
@@ -270,17 +273,46 @@ export default function LeafletMap({
   }, [provinceStats, activeProvince, mapMetric, getProvinceStatus, onSelectProvince]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '340px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '380px' }}>
       <div 
         ref={mapContainerRef} 
         style={{ 
           width: '100%', 
           height: '100%', 
-          minHeight: '340px',
+          minHeight: '380px',
           borderRadius: '12px',
           zIndex: 1 
         }} 
       />
+
+      {/* Floating Map Legend Overlay */}
+      <div style={{
+        position: 'absolute',
+        bottom: '12px',
+        right: '12px',
+        zIndex: 1000,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid var(--color-border)',
+        borderRadius: '8px',
+        padding: '8px 12px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        fontSize: '11px',
+        fontFamily: 'Prompt, sans-serif'
+      }}>
+        <div style={{ fontWeight: 700, marginBottom: '4px', color: '#0f172a' }}>เกณฑ์ระดับสีแผนที่</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+          <span style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '3px', display: 'inline-block' }}></span>
+          <span>ผ่านเกณฑ์ (≥80% สำหรับติดตาม)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+          <span style={{ width: '12px', height: '12px', backgroundColor: '#f59e0b', borderRadius: '3px', display: 'inline-block' }}></span>
+          <span>เฝ้าระวัง (70-79%)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '12px', height: '12px', backgroundColor: '#ef4444', borderRadius: '3px', display: 'inline-block' }}></span>
+          <span>ต้องปรับปรุง (&lt;70%)</span>
+        </div>
+      </div>
     </div>
   );
 }
