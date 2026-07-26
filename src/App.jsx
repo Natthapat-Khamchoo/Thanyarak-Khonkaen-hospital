@@ -7,7 +7,8 @@ import {
 } from './utils/dataHelper';
 import ExecutiveSummary from './components/ExecutiveSummary';
 import NetworkPerformance from './components/NetworkPerformance';
-import ClinicalProgram from './components/ClinicalProgram';
+import SubstanceAnalytics from './components/SubstanceAnalytics';
+import ReferralDestinationChart from './components/ReferralDestinationChart';
 import ClinicalAnalytics from './components/ClinicalAnalytics';
 import CaseTracking from './components/CaseTracking';
 import { 
@@ -20,14 +21,16 @@ import {
   Network,
   Activity,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Pill,
+  Building2
 } from 'lucide-react';
 
 export default function App() {
   // Active Filters & Navigation State
-  const [year, setYear] = useState('2568'); // default middle year
+  const [year, setYear] = useState('2568'); // default year
   const [province, setProvince] = useState('All');
-  const [activeLevel, setActiveLevel] = useState('1'); // '1', '2', '3', '4', '5'
+  const [activeLevel, setActiveLevel] = useState('1'); // '1' to '6'
   
   // Data State
   const [allData, setAllData] = useState({ '2566': [], '2567': [], '2568': [], '2569': [] });
@@ -63,10 +66,10 @@ export default function App() {
     loadData(true);
   };
 
-  // Handle local state update (e.g. marking a case as followed up in Level 5)
+  // Handle local state update
   const handleUpdateStatus = (hn) => {
     setAllData(prev => {
-      const updatedYearData = prev[year].map(row => {
+      const updatedYearData = (prev[year] || []).map(row => {
         if (row.hn === hn) {
           return { ...row, status: 'มาติดตามแล้ว' };
         }
@@ -100,7 +103,7 @@ export default function App() {
             <Activity size={24} style={{ color: 'var(--color-primary)' }} />
             Referral Clinical Dashboard
           </h1>
-          <p>ระบบติดตามผลการคัดกรองและการเข้าสู่ระบบบริการแบบหมุนเวียน (Referral Loop) รายจังหวัด</p>
+          <p>ระบบติดตามผลการคัดกรองและการเข้าสู่ระบบบริการแบบหมุนเวียน (Referral Loop) โรงพยาบาลธัญญารักษ์ขอนแก่น</p>
         </div>
         
         <div className="header-actions">
@@ -135,7 +138,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Filter and Settings Panel */}
+      {/* Filter Panel */}
       <div 
         style={{
           display: 'flex',
@@ -163,7 +166,7 @@ export default function App() {
               value={year} 
               onChange={(e) => {
                 setYear(e.target.value);
-                setProvince('All'); // Reset province on year change
+                setProvince('All');
               }}
               className="custom-select"
             >
@@ -193,7 +196,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Province Reset Indicator */}
+        {/* Province Reset */}
         {province !== 'All' && (
           <button 
             className="btn btn-secondary" 
@@ -205,42 +208,49 @@ export default function App() {
         )}
       </div>
 
-      {/* Dashboard Level Navigation Tabs */}
-      <nav className="tabs-navigation" style={{ maxWidth: '100%' }}>
+      {/* Navigation Tabs */}
+      <nav className="tabs-navigation" style={{ maxWidth: '100%', flexWrap: 'wrap' }}>
         <button 
           className={`tab-btn ${activeLevel === '1' ? 'active' : ''}`}
           onClick={() => setActiveLevel('1')}
         >
           <Activity size={16} />
-          Level 1: Summary
+          ภาพรวมผู้บริหาร (Overview)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '2' ? 'active' : ''}`}
           onClick={() => setActiveLevel('2')}
         >
           <Network size={16} />
-          Level 2: Network
+          แผนที่เครือข่ายจังหวัด (Network Map)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '3' ? 'active' : ''}`}
           onClick={() => setActiveLevel('3')}
         >
-          <Layers size={16} />
-          Level 3: Program
+          <Pill size={16} />
+          สารเสพติด & ภาวะทางกาย (Substance)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '4' ? 'active' : ''}`}
           onClick={() => setActiveLevel('4')}
         >
-          <TrendingUp size={16} />
-          Level 4: Analytics
+          <Building2 size={16} />
+          เส้นทางส่งต่อ & หอผู้ป่วย (Referral Flow)
         </button>
         <button 
           className={`tab-btn ${activeLevel === '5' ? 'active' : ''}`}
           onClick={() => setActiveLevel('5')}
         >
+          <TrendingUp size={16} />
+          วิเคราะห์ทำนายเชิงลึก (Analytics)
+        </button>
+        <button 
+          className={`tab-btn ${activeLevel === '6' ? 'active' : ''}`}
+          onClick={() => setActiveLevel('6')}
+        >
           <AlertCircle size={16} />
-          Level 5: Tracking
+          ติดตามเคส (Case Tracking)
         </button>
       </nav>
 
@@ -248,10 +258,10 @@ export default function App() {
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '1rem' }}>
           <div className="spinner" style={{ width: '40px', height: '40px', borderLeftColor: 'var(--color-primary)', borderWidth: '4px' }}></div>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>กำลังโหลดและประมวลผลข้อมูล 3 ปีงบประมาณ...</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>กำลังโหลดและประมวลผลข้อมูล 4 ปีงบประมาณ...</p>
         </div>
       ) : (
-        /* Main Dashboard Level Content */
+        /* Main Content */
         <main>
           {activeLevel === '1' && (
             <ExecutiveSummary 
@@ -270,12 +280,18 @@ export default function App() {
           )}
 
           {activeLevel === '3' && (
-            <ClinicalProgram 
-              clinicalProgramStats={computedMetrics.clinicalProgramStats} 
+            <SubstanceAnalytics 
+              data={currentYearData} 
             />
           )}
 
           {activeLevel === '4' && (
+            <ReferralDestinationChart 
+              data={currentYearData} 
+            />
+          )}
+
+          {activeLevel === '5' && (
             <ClinicalAnalytics 
               yoyData={yoyData} 
               advancedMetrics={computedMetrics.advanced} 
@@ -283,7 +299,7 @@ export default function App() {
             />
           )}
 
-          {activeLevel === '5' && (
+          {activeLevel === '6' && (
             <CaseTracking 
               data={currentYearData} 
               provinceFilter={province} 
