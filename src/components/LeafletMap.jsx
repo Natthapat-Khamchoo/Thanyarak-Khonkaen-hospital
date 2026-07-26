@@ -45,11 +45,16 @@ export default function LeafletMap({
       scrollWheelZoom: true
     });
 
-    // CartoDB Voyage Tiles (Clean, modern look)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyage/{z}/{x}/{y}{r}.png', {
+    // OpenStreetMap Standard Tiles (Fast, 100% Reliable, 200 OK)
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
+
+    // Invalidate map size after rendering to ensure all tile images load properly
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
 
     const layerGroup = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
@@ -69,6 +74,7 @@ export default function LeafletMap({
     const layerGroup = layerGroupRef.current;
     if (!map || !layerGroup) return;
 
+    map.invalidateSize();
     layerGroup.clearLayers();
 
     // 1. Draw Province Circles and Markers
