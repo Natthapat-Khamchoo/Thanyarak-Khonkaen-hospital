@@ -30,19 +30,20 @@ import {
 } from 'recharts';
 import MetricCard from './MetricCard';
 
-export default function ExecutiveSummary({ metrics, year, province }) {
+export default function ExecutiveSummary({ metrics = {}, year = '2568', province = 'All' }) {
   const [selectedCard, setSelectedCard] = useState(null);
 
   const {
-    totalReferrals,
-    completionRate,
-    followUpRate,
-    lossToFollowUpRate,
-    readmissionRate,
-    incidents,
-    severeAdverseEvents,
-    monthlyTrend
-  } = metrics;
+    totalReferrals = 0,
+    completionRate = 0,
+    followUpRate = 0,
+    lossToFollowUpRate = 0,
+    readmissionRate = 0,
+    incidents = 0,
+    severeAdverseEvents = 0,
+    monthlyTrend = [],
+    executiveKPIs = {}
+  } = metrics || {};
 
   // Calculate status levels
   const getFollowUpStatus = (val) => {

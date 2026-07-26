@@ -5,9 +5,7 @@ const GOOGLE_SHEET_ID = '15eaW702CytEio_PlIM-JmOG9h-AQvwL7JTnfl1ALgBk';
 const SHEET_TABS = [
   'Master Data (Refer in)',
   'Master Data (Refer back)',
-  'Master Data (Refer out)',
-  'master data refer in',
-  'master data refer out'
+  'Master Data (Refer out)'
 ];
 
 const THAI_MONTHS = {
