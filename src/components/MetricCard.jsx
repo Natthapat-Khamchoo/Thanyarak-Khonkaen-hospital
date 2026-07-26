@@ -21,6 +21,10 @@ export default function MetricCard({
     }
   };
 
+  const displayValue = (value !== null && value !== undefined && typeof value === 'number' && !isNaN(value))
+    ? value.toLocaleString()
+    : (value ?? 0);
+
   return (
     <div 
       className={`kpi-card status-${status} animate-fade-in ${onClick ? 'clickable' : ''}`}
@@ -37,7 +41,7 @@ export default function MetricCard({
           )}
         </div>
         <div className="kpi-value">
-          {typeof value === 'number' ? value.toLocaleString() : value}
+          {displayValue}
           <span style={{ fontSize: '0.875rem', fontWeight: 500, marginLeft: '4px', color: 'var(--color-text-muted)' }}>
             {unit}
           </span>

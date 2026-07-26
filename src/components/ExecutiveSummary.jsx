@@ -30,6 +30,11 @@ import {
 } from 'recharts';
 import MetricCard from './MetricCard';
 
+const safeToFixed = (val, digits = 1) => {
+  const num = Number(val);
+  return isNaN(num) ? '0.0' : num.toFixed(digits);
+};
+
 export default function ExecutiveSummary({ metrics = {}, year = '2568', province = 'All' }) {
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -128,7 +133,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
       case 'readmission':
         return {
           title: 'อัตราการกลับเข้ารักษาซ้ำภายใน 28 วัน (Readmission Rate 28 Days)',
-          count: `${readmissionRate.toFixed(1)}%`,
+          count: `${safeToFixed(readmissionRate)}%`,
           desc: `สัดส่วนผู้ป่วยที่กลับเข้ารับการรักษาซ้ำในโรงพยาบาลภายใน 28 วันหลังจำหน่าย (เป้าหมาย <10%)`,
           badge: 'เป้าหมาย <10%',
           level: getReadmissionStatus(readmissionRate),
@@ -207,7 +212,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
         />
         <MetricCard
           title="Readmission 28 วัน"
-          value={readmissionRate.toFixed(1)}
+          value={safeToFixed(readmissionRate)}
           unit="%"
           targetLabel="เป้าหมาย <10%"
           status={getReadmissionStatus(readmissionRate)}
@@ -282,11 +287,11 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '10px', height: '10px', backgroundColor: '#0ea5e9', borderRadius: '50%', display: 'inline-block' }}></span>
-                <span>มาติดตามแล้ว ({followUpRate.toFixed(1)}%)</span>
+                <span>มาติดตามแล้ว ({safeToFixed(followUpRate)}%)</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '10px', height: '10px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block' }}></span>
-                <span>ยังไม่พบมาติดตาม ({lossToFollowUpRate.toFixed(1)}%)</span>
+                <span>ยังไม่พบมาติดตาม ({safeToFixed(lossToFollowUpRate)}%)</span>
               </div>
             </div>
           </div>
