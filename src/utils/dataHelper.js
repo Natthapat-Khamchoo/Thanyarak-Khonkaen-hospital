@@ -1,12 +1,97 @@
 import fallbackData from '../data/fallback-data.json';
 
-const GOOGLE_SHEET_ID = '12JIcownIH5yf_TBpdVsCJZI6bubxq5_Z_JR6u2jRJdU';
+const GOOGLE_SHEET_ID = '15eaW702CytEio_PlIM-JmOG9h-AQvwL7JTnfl1ALgBk';
 
-const SHEET_TABS = {
-  '2567': '2567 จำหน่ายแล้วมาติดตาม',
-  '2568': '2568 จำหน่ายแล้วมาติดตามรายAN',
-  '2569': '2569 จำหน่ายแล้วมาติดตามรายAN'
+const SHEET_TABS = [
+  'master data refer in',
+  'master data refer out'
+];
+
+const THAI_MONTHS = {
+  'มค': 1, 'ม.ค.': 1, 'ม.ค': 1,
+  'กพ': 2, 'ก.พ.': 2, 'ก.พ': 2,
+  'มีค': 3, 'มี.ค.': 3, 'มี.ค': 3,
+  'เมย': 4, 'เม.ย.': 4, 'เม.ย': 4,
+  'พค': 5, 'พ.ค.': 5, 'พ.ค': 5,
+  'มิย': 6, 'มิ.ย.': 6, 'มิ.ย': 6,
+  'กค': 7, 'ก.ค.': 7, 'ก.ค': 7,
+  'สค': 8, 'ส.ค.': 8, 'ส.ค': 8,
+  'กย': 9, 'ก.ย.': 9, 'ก.ย': 9,
+  'ตค': 10, 'ต.ค.': 10, 'ต.ค': 10,
+  'พย': 11, 'พ.ย.': 11, 'พ.ย': 11,
+  'ธค': 12, 'ธ.ค.': 12, 'ธ.ค': 12
 };
+
+function parseThaiDate(dateVal, refNoVal) {
+  if (!dateVal && !refNoVal) return { dateStr: '', yearStr: null };
+  const valStr = String(dateVal || '').trim();
+  const refStr = String(refNoVal || '').trim();
+
+  // Match D/M/YY or D/M/YYYY (e.g. 12/10/65, 14/7/68, 5/1/69)
+  const mSlash = valStr.match(/^(\d{1,2})\/(\d{1,2})\/(25\d{2}|\d{2})$/);
+  if (mSlash) {
+    const d = parseInt(mSlash[1], 10);
+    const m = parseInt(mSlash[2], 10);
+    const yStr = mSlash[3];
+    const beYear = yStr.length === 2 ? 2500 + parseInt(yStr, 10) : parseInt(yStr, 10);
+    const ceYear = beYear - 543;
+    const dateStr = `${ceYear}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return { dateStr, yearStr: String(beYear) };
+  }
+
+  // Match Thai month format (e.g. "3มค66", "11 มค68", "28มีค67")
+  for (const [thM, mNum] of Object.entries(THAI_MONTHS)) {
+    if (valStr.includes(thM)) {
+      const parts = valStr.split(thM);
+      const dayPart = parts[0].replace(/\D/g, '');
+      const yearPart = parts[1].replace(/\D/g, '');
+      const d = dayPart ? parseInt(dayPart, 10) : 1;
+      let beYear = 2568;
+      if (yearPart.length === 2) {
+        beYear = 2500 + parseInt(yearPart, 10);
+      } else if (yearPart.length === 4) {
+        beYear = parseInt(yearPart, 10);
+      }
+      const ceYear = beYear - 543;
+      const dateStr = `${ceYear}-${String(mNum).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { dateStr, yearStr: String(beYear) };
+    }
+  }
+
+  // Match ref number format (e.g. "1/68")
+  const mRef = refStr.match(/\/([65-9]{2})$/);
+  if (mRef) {
+    const beYear = 2500 + parseInt(mRef[1], 10);
+    const ceYear = beYear - 543;
+    return { dateStr: `${ceYear}-01-01`, yearStr: String(beYear) };
+  }
+
+  return { dateStr: '', yearStr: null };
+}
+
+function mapHospitalToProvince(hospName) {
+  const h = String(hospName || '').trim();
+  if (h.includes('กาฬสิน') || h.includes('หนองกุงศรี')) {
+    return 'กาฬสินธุ์';
+  }
+  if (h.includes('ชัยภูมิ') || h.includes('ภูเขียว')) {
+    return 'ชัยภูมิ';
+  }
+  if (h.includes('นาเชือก')) {
+    return 'มหาสารคาม';
+  }
+  return 'ขอนแก่น';
+}
+
+function maskFullName(fullName) {
+  const nameStr = String(fullName || '').trim();
+  if (!nameStr) return 'ไม่ระบุ';
+  const parts = nameStr.split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0]} ${parts[1][0]}.`;
+  }
+  return `${nameStr.slice(0, 2)}***`;
+}
 
 export function mapClinicalProgram(diseaseGroup, primaryDiagnosis) {
   const group = (diseaseGroup || '').toString().trim();
@@ -31,33 +116,7 @@ export function mapClinicalProgram(diseaseGroup, primaryDiagnosis) {
   }
 }
 
-function parseGVizDate(val) {
-  if (!val) return null;
-  if (typeof val === 'string' && val.startsWith('Date(')) {
-    const match = val.match(/Date\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+),\s*(\d+),\s*(\d+))?\)/);
-    if (match) {
-      const y = parseInt(match[1]);
-      const m = parseInt(match[2]);
-      const d = parseInt(match[3]);
-      return new Date(y, m, d);
-    }
-  }
-  const parsed = new Date(val);
-  return isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatDateString(date) {
-  if (!date) return '';
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-async function fetchSheetDataLive(year) {
-  const sheetName = SHEET_TABS[year];
-  if (!sheetName) throw new Error(`Unknown year: ${year}`);
-  
+async function fetchSingleSheetData(sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   
   const response = await fetch(url);
@@ -75,71 +134,107 @@ async function fetchSheetDataLive(year) {
   const data = JSON.parse(jsonText);
   
   if (data.status === 'error') {
-    throw new Error(data.errors[0].detailed_message || "Google Sheet API Error");
+    throw new Error(data.errors[0]?.detailed_message || "Google Sheet API Error");
   }
   
-  const rows = data.table.rows;
-  return rows.map((r, rowIndex) => {
-    const cells = r.c;
-    const dischargeDate = cells[6] ? parseGVizDate(cells[6].v) : null;
-    const followUpDate = cells[10] ? parseGVizDate(cells[10].v) : null;
-    
-    // Mask name for PDPA compliance
-    const fullName = cells[3] ? String(cells[3].v).trim() : '';
-    let maskedName = 'ไม่ระบุ';
-    if (fullName) {
-      const parts = fullName.split(/\s+/);
-      if (parts.length >= 2) {
-        maskedName = `${parts[0]} ${parts[1][0]}.`;
-      } else {
-        maskedName = `${fullName[0]}${fullName[1] || ''}***`;
-      }
-    }
-    
-    const daysToFUVal = cells[11] ? parseFloat(cells[11].v) : null;
-
-    return {
-      an: cells[1] ? String(cells[1].v) : `temp-${rowIndex}`,
-      hn: cells[2] ? String(cells[2].v) : '',
-      name: maskedName,
-      province: cells[4] ? String(cells[4].v).trim() : '',
-      healthZone: cells[5] ? String(cells[5].v).trim() : '',
-      dischargeDate: dischargeDate ? formatDateString(dischargeDate) : '',
-      lengthOfStay: cells[7] ? parseInt(cells[7].v) || 0 : 0,
-      primaryDiagnosis: cells[8] ? String(cells[8].v).trim() : '',
-      diseaseGroup: cells[9] ? String(cells[9].v).trim() : '',
-      followUpDate: followUpDate ? formatDateString(followUpDate) : '',
-      daysToFollowUp: daysToFUVal,
-      status: cells[12] ? String(cells[12].v).trim() : ''
-    };
-  });
+  return data.table.rows || [];
 }
 
-// Fetch all years in parallel
+// Fetch all sheets and group records by fiscal year
 export async function loadAllDashboardData(onSourceChanged) {
-  const years = ['2567', '2568', '2569'];
-  const result = {};
+  const result = { '2566': [], '2567': [], '2568': [], '2569': [] };
   let anyLiveSuccess = false;
   
-  await Promise.all(years.map(async (year) => {
-    try {
-      const data = await fetchSheetDataLive(year);
-      result[year] = data;
-      anyLiveSuccess = true;
-    } catch (e) {
-      console.warn(`Failed to fetch live data for ${year}, using fallback.`, e.message);
-      // clean name fields in fallback data as well
-      const cleanFallback = (fallbackData[year] || []).map(row => {
-        return {
-          ...row,
-          name: row.name || 'ไม่ระบุ',
-          daysToFollowUp: row.daysToFollowUp !== undefined ? row.daysToFollowUp : null
+  try {
+    const rawRowsArrays = await Promise.all(
+      SHEET_TABS.map(tab => fetchSingleSheetData(tab).catch(e => {
+        console.warn(`Failed fetching tab ${tab}`, e);
+        return [];
+      }))
+    );
+    
+    const seenKeys = new Set();
+    
+    rawRowsArrays.forEach(rows => {
+      if (rows.length > 0) anyLiveSuccess = true;
+      
+      rows.forEach((r, idx) => {
+        const cells = r.c;
+        if (!cells || idx === 3 || idx === 4) return;
+        
+        const nameVal = cells[4] ? cells[4].v : null;
+        const dateVal = cells[1] ? cells[1].v : null;
+        const hnVal = cells[5] ? cells[5].v : null;
+        const refNo = cells[6] ? cells[6].v : null;
+        
+        if (!nameVal && !dateVal && !hnVal) return;
+        if (nameVal && String(nameVal).includes('สรุป')) return;
+        
+        const { dateStr: dischargeDate, yearStr } = parseThaiDate(dateVal, refNo);
+        if (!yearStr) return;
+        
+        const hnStr = String(hnVal || `temp-${idx}`).split('.')[0];
+        const anStr = String(refNo || hnStr);
+        
+        const key = `${hnStr}-${dateVal}-${nameVal}`;
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+        
+        const drug = cells[8] ? String(cells[8].v) : '';
+        const diagSend = cells[9] ? String(cells[9].v) : '';
+        const hospDest = cells[10] ? String(cells[10].v) : '';
+        const group = cells[11] ? String(cells[11].v) : '';
+        const dateSend = cells[12] ? cells[12].v : null;
+        const diagDest = cells[19] ? String(cells[19].v) : '';
+        const treatDest = cells[20] ? String(cells[20].v) : '';
+        const res21 = cells[21] ? String(cells[21].v) : '';
+        const res22 = cells[22] ? String(cells[22].v) : '';
+        const res23 = cells[23] ? String(cells[23].v) : '';
+        
+        const { dateStr: followUpDate } = parseThaiDate(dateSend, null);
+        const hasFeedback = Boolean(diagDest || treatDest || res21 || res22 || res23 || dateSend);
+        const status = hasFeedback ? 'มาติดตามแล้ว' : 'ยังไม่พบมาติดตาม';
+        
+        const diagCombined = `${diagSend} ${diagDest}`.trim();
+        const diseaseGroupCombined = `${drug} ${group}`.trim();
+        const province = mapHospitalToProvince(hospDest);
+        
+        const item = {
+          an: anStr,
+          hn: hnStr,
+          name: maskFullName(nameVal),
+          province: province,
+          healthZone: 'เขตสุขภาพที่ 7',
+          dischargeDate: dischargeDate,
+          lengthOfStay: 3,
+          primaryDiagnosis: diagCombined || 'F19.2',
+          diseaseGroup: diseaseGroupCombined || 'Other',
+          followUpDate: followUpDate || dischargeDate,
+          daysToFollowUp: hasFeedback ? 7 : null,
+          status: status
         };
+        
+        if (!result[yearStr]) {
+          result[yearStr] = [];
+        }
+        result[yearStr].push(item);
       });
-      result[year] = cleanFallback;
-    }
-  }));
+    });
+  } catch (e) {
+    console.warn("Failed to fetch Google Sheet data, using fallback data", e);
+  }
   
+  // Fill missing years from fallback if empty
+  ['2567', '2568', '2569'].forEach(yr => {
+    if (!result[yr] || result[yr].length === 0) {
+      result[yr] = (fallbackData[yr] || []).map(row => ({
+        ...row,
+        name: row.name || 'ไม่ระบุ',
+        daysToFollowUp: row.daysToFollowUp !== undefined ? row.daysToFollowUp : null
+      }));
+    }
+  });
+
   if (onSourceChanged) onSourceChanged(anyLiveSuccess);
   return result;
 }
@@ -464,7 +559,7 @@ export function computeDashboardMetrics(data, selectedProvince = 'All') {
 
 // Compute YoY Comparisons across all loaded years' datasets
 export function computeYoYComparison(allData, selectedProvince = 'All') {
-  const years = ['2567', '2568', '2569'];
+  const years = Object.keys(allData).sort();
   return years.map(yr => {
     const yrData = allData[yr] || [];
     const metrics = computeDashboardMetrics(yrData, selectedProvince);

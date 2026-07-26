@@ -30,7 +30,7 @@ export default function App() {
   const [activeLevel, setActiveLevel] = useState('1'); // '1', '2', '3', '4', '5'
   
   // Data State
-  const [allData, setAllData] = useState({ '2567': [], '2568': [], '2569': [] });
+  const [allData, setAllData] = useState({ '2566': [], '2567': [], '2568': [], '2569': [] });
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -167,6 +167,7 @@ export default function App() {
               }}
               className="custom-select"
             >
+              <option value="2566">ปีงบประมาณ 2566</option>
               <option value="2567">ปีงบประมาณ 2567</option>
               <option value="2568">ปีงบประมาณ 2568</option>
               <option value="2569">ปีงบประมาณ 2569</option>
