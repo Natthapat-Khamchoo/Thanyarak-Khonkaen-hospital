@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import 'leaflet.heat';
 
 const PROVINCE_COORDINATES = {
   'ขอนแก่น': { lat: 16.4322, lng: 102.8236, zoom: 10 },
@@ -45,8 +46,8 @@ export default function LeafletMap({
       scrollWheelZoom: true
     });
 
-    // OpenStreetMap Standard Tiles (Fast, 100% Reliable, 200 OK)
-    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // OpenStreetMap Standard Tiles (Fast, 100% Reliable)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
@@ -77,7 +78,60 @@ export default function LeafletMap({
     map.invalidateSize();
     layerGroup.clearLayers();
 
-    // 1. Draw Province Circles and Markers
+    // 1. Prepare Heatmap points array
+    const heatPoints = [];
+
+    provinceStats.forEach((stat) => {
+      const coords = PROVINCE_COORDINATES[stat.province];
+      if (!coords) return;
+
+      const statusDetails = getProvinceStatus(stat, mapMetric);
+
+      // Determine intensity based on selected metric
+      let intensity = 0.5;
+      if (mapMetric === 'fuRate') {
+        // High follow-up rate = green/blue (low risk), Low follow-up rate = high red intensity (high risk)
+        intensity = stat.fuRate < 70 ? 0.95 : stat.fuRate < 80 ? 0.6 : 0.25;
+      } else if (mapMetric === 'lostRate') {
+        intensity = stat.lostRate >= 25 ? 0.95 : stat.lostRate >= 15 ? 0.6 : 0.25;
+      } else {
+        intensity = stat.readmRate >= 10 ? 0.95 : stat.readmRate >= 5 ? 0.6 : 0.25;
+      }
+
+      // Add central point with high weight
+      heatPoints.push([coords.lat, coords.lng, intensity]);
+
+      // Add surrounding jittered points to create smooth continuous heat density around the province
+      const offsets = [
+        [0.08, 0.08], [-0.08, -0.08], [0.08, -0.08], [-0.08, 0.08],
+        [0.15, 0.0], [-0.15, 0.0], [0.0, 0.15], [0.0, -0.15],
+        [0.04, 0.04], [-0.04, -0.04]
+      ];
+
+      offsets.forEach(([dLat, dLng]) => {
+        heatPoints.push([coords.lat + dLat, coords.lng + dLng, intensity * 0.75]);
+      });
+    });
+
+    // Render Heatmap Layer (L.heatLayer)
+    if (heatPoints.length > 0 && typeof L.heatLayer === 'function') {
+      const heatLayer = L.heatLayer(heatPoints, {
+        radius: 45,
+        blur: 25,
+        maxZoom: 10,
+        max: 1.0,
+        gradient: {
+          0.2: '#0284c7', // Sky Blue (Low Risk / High Performance)
+          0.4: '#10b981', // Green
+          0.65: '#f59e0b', // Yellow / Orange (Warning)
+          0.85: '#ef4444', // Red (High Risk / Action Required)
+          1.0: '#b91c1c'  // Dark Red
+        }
+      });
+      layerGroup.addLayer(heatLayer);
+    }
+
+    // 2. Draw Interactive Province Markers and Tooltips/Popups
     provinceStats.forEach((stat) => {
       const coords = PROVINCE_COORDINATES[stat.province];
       if (!coords) return;
@@ -85,26 +139,44 @@ export default function LeafletMap({
       const statusDetails = getProvinceStatus(stat, mapMetric);
       const isSelected = activeProvince === stat.province;
 
-      // Color mapping
       let colorHex = '#10b981'; // green
       if (statusDetails.code === 'yellow') colorHex = '#f59e0b';
       if (statusDetails.code === 'red') colorHex = '#ef4444';
 
-      // Province Area Circle
-      const circle = L.circle([coords.lat, coords.lng], {
-        radius: isSelected ? 28000 : 20000,
-        color: isSelected ? 'var(--color-primary-dark, #0284c7)' : colorHex,
-        weight: isSelected ? 4 : 2,
-        fillColor: colorHex,
-        fillOpacity: isSelected ? 0.6 : 0.35
-      });
-
-      // Hover Tooltip
       let metricLabel = 'อัตราการติดตามสำเร็จ';
       if (mapMetric === 'lostRate') metricLabel = 'อัตรา Lost FU';
       if (mapMetric === 'readmRate') metricLabel = 'อัตรากลับเข้ารักษาซ้ำ';
 
-      circle.bindTooltip(
+      // Interactive Marker Badge
+      const badgeIcon = L.divIcon({
+        className: 'custom-leaflet-label',
+        html: `<div style="
+          background: ${isSelected ? '#0284c7' : 'rgba(255, 255, 255, 0.95)'};
+          color: ${isSelected ? '#ffffff' : '#0f172a'};
+          border: 2px solid ${colorHex};
+          padding: 4px 8px;
+          border-radius: 16px;
+          font-size: 12px;
+          font-weight: 700;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+          white-space: nowrap;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: transform 0.15s ease;
+        ">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${colorHex}; display: inline-block;"></span>
+          ${stat.province}: ${stat[mapMetric].toFixed(1)}%
+        </div>`,
+        iconSize: [110, 28],
+        iconAnchor: [55, 14]
+      });
+
+      const marker = L.marker([coords.lat, coords.lng], { icon: badgeIcon });
+
+      // Hover Tooltip
+      marker.bindTooltip(
         `<div>
           <strong style="font-size:14px;">จังหวัด${stat.province}</strong><br/>
           <span>${metricLabel}: <strong>${stat[mapMetric].toFixed(1)}%</strong></span><br/>
@@ -113,7 +185,7 @@ export default function LeafletMap({
         { permanent: false, direction: 'top' }
       );
 
-      // Popup content on Click
+      // Popup on Click
       const popupContent = document.createElement('div');
       popupContent.style.fontFamily = 'Prompt, sans-serif';
       popupContent.style.padding = '4px';
@@ -131,7 +203,7 @@ export default function LeafletMap({
         <button id="filter-btn-${stat.province}" style="
           margin-top: 8px;
           width: 100%;
-          padding: 4px 8px;
+          padding: 5px 8px;
           background: #0ea5e9;
           color: white;
           border: none;
@@ -144,9 +216,9 @@ export default function LeafletMap({
         </button>
       `;
 
-      circle.bindPopup(popupContent);
+      marker.bindPopup(popupContent);
 
-      circle.on('popupopen', () => {
+      marker.on('popupopen', () => {
         const btn = document.getElementById(`filter-btn-${stat.province}`);
         if (btn) {
           btn.onclick = () => {
@@ -156,41 +228,14 @@ export default function LeafletMap({
         }
       });
 
-      circle.on('click', () => {
+      marker.on('click', () => {
         onSelectProvince(isSelected ? 'All' : stat.province);
       });
 
-      circle.addTo(layerGroup);
-
-      // Label Marker
-      const labelIcon = L.divIcon({
-        className: 'custom-leaflet-label',
-        html: `<div style="
-          background: ${isSelected ? '#0284c7' : 'rgba(255, 255, 255, 0.95)'};
-          color: ${isSelected ? '#ffffff' : '#0f172a'};
-          border: 1px solid ${colorHex};
-          padding: 2px 6px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 700;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-          white-space: nowrap;
-          text-align: center;
-        ">
-          ${stat.province} (${stat[mapMetric].toFixed(1)}%)
-        </div>`,
-        iconSize: [80, 24],
-        iconAnchor: [40, 12]
-      });
-
-      const labelMarker = L.marker([coords.lat, coords.lng], { icon: labelIcon });
-      labelMarker.on('click', () => {
-        onSelectProvince(isSelected ? 'All' : stat.province);
-      });
-      labelMarker.addTo(layerGroup);
+      layerGroup.addLayer(marker);
     });
 
-    // 2. Hospital Markers
+    // 3. Hospital Markers
     HOSPITALS_DATA.forEach((hosp) => {
       const isProvinceSelected = activeProvince === 'All' || activeProvince === hosp.province;
       if (!isProvinceSelected) return;
@@ -211,7 +256,7 @@ export default function LeafletMap({
 
       const marker = L.marker([hosp.lat, hosp.lng], { icon: hospIcon });
       marker.bindTooltip(`<b>${hosp.name}</b> (${hosp.type})`, { permanent: false, direction: 'top' });
-      marker.addTo(layerGroup);
+      layerGroup.addLayer(marker);
     });
 
     // Center map view if a specific province is selected
