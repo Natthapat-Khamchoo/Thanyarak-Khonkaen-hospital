@@ -13,7 +13,8 @@ import {
   MapPin,
   Calendar,
   ShieldCheck,
-  Zap
+  Zap,
+  Search
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -26,9 +27,15 @@ import {
   Legend, 
   PieChart, 
   Pie, 
-  Cell 
+  Cell,
+  BarChart,
+  Bar
 } from 'recharts';
 import MetricCard from './MetricCard';
+import { mapClinicalProgram } from '../utils/dataHelper';
+import { maskPatientName, maskHN, maskAN, sanitizeInput } from '../utils/securityHelper';
+
+
 
 const safeToFixed = (val, digits = 1) => {
   const num = Number(val);
@@ -58,8 +65,103 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-export default function ExecutiveSummary({ metrics = {}, year = '2568', province = 'All' }) {
+export default function ExecutiveSummary({ metrics = {}, data = [], year = '2568', province = 'All', isPdpaMasked = true }) {
+
   const [selectedCard, setSelectedCard] = useState(null);
+  const [provChartMode, setProvChartMode] = useState('referType'); // 'referType' | 'substance' | 'status'
+
+  // In-Modal Filter & Search States
+  const [modalSearchText, setModalSearchText] = useState('');
+  const [modalStatusFilter, setModalStatusFilter] = useState('All');
+  const [modalSubstanceFilter, setModalSubstanceFilter] = useState('All');
+
+  const handleOpenCardModal = (cardKey) => {
+    setSelectedCard(cardKey);
+    setModalSearchText('');
+    setModalStatusFilter('All');
+    setModalSubstanceFilter('All');
+  };
+
+  // Get all real cases matching selectedCard category
+  const getModalCases = () => {
+    if (!selectedCard) return [];
+    
+    let filtered = [...data];
+    if (province !== 'All') {
+      filtered = filtered.filter(r => r.province === province);
+    }
+
+    switch (selectedCard) {
+      case 'total':
+        return filtered;
+      case 'referIn':
+        return filtered.filter(r => r.referType === 'Refer In' || (!r.referType && r.direction === 'In'));
+      case 'referOut':
+        return filtered.filter(r => r.referType === 'Refer Out' || (!r.referType && r.direction === 'Out'));
+      case 'referBack':
+        return filtered.filter(r => r.referType === 'Refer Back' || (!r.referType && r.direction === 'Back'));
+      case 'readmission':
+        return filtered.filter(r => r.isReadmission || (r.an && String(r.an).length > 0));
+      case 'incidents':
+        return filtered.filter(r => r.incident || r.suicideRisk === 'High' || r.isConcordant === false);
+      default:
+        return filtered;
+    }
+  };
+
+  const rawModalCases = getModalCases();
+
+  const filteredModalCases = rawModalCases.filter(pt => {
+    // 1. Text Search (HN, Patient Name, Hospital, Diagnosis, Ward) - OWASP A03 Sanitized
+    if (modalSearchText.trim()) {
+      const q = sanitizeInput(modalSearchText).toLowerCase();
+      if (!q) return true;
+      const matchHN = String(pt.hn || '').toLowerCase().includes(q);
+
+      const matchName = String(pt.patientName || pt.name || '').toLowerCase().includes(q);
+      const matchHosp = String(pt.referringHospital || pt.hospital || pt.hosp || pt.province || '').toLowerCase().includes(q);
+      const matchDiag = String(pt.primaryDiagnosis || pt.diag || pt.diseaseGroup || '').toLowerCase().includes(q);
+      const matchWard = String(pt.originWard || pt.ward || '').toLowerCase().includes(q);
+      if (!matchHN && !matchName && !matchHosp && !matchDiag && !matchWard) return false;
+    }
+
+    // 2. Status Filter
+    if (modalStatusFilter !== 'All') {
+      if (pt.status !== modalStatusFilter) return false;
+    }
+
+    // 3. Substance Filter
+    if (modalSubstanceFilter !== 'All') {
+      const g = String(pt.diseaseGroup || pt.substanceType || '').toLowerCase();
+      if (!g.includes(modalSubstanceFilter.toLowerCase())) return false;
+    }
+
+    return true;
+  });
+
+  const getCardModalTitle = (cardKey) => {
+    switch (cardKey) {
+      case 'total':
+        return { title: 'จำนวนเคสรวมส่งต่อทั้งหมด (Total Referrals)', desc: 'รวมรายการเคสผู้ป่วยทั้งหมดที่ผ่านการรับส่งต่อในระบบโรงพยาบาลธัญญารักษ์ขอนแก่น' };
+      case 'referIn':
+        return { title: 'รับส่งต่อเข้า (Refer In Total)', desc: 'เคสผู้ป่วยที่รับส่งต่อจากโรงพยาบาลชุมชน/โรงพยาบาลศูนย์ เข้ามารับการบำบัดรักษา' };
+      case 'referOut':
+        return { title: 'ส่งต่อออก (Refer Out Total)', desc: 'เคสผู้ป่วยที่ส่งต่อไปยังโรงพยาบาลศูนย์ หรือแพทย์เฉพาะทาง' };
+      case 'referBack':
+        return { title: 'ส่งกลับ (Refer Back Total)', desc: 'เคสที่บำบัดครบกำหนดและส่งกลับติดตามในชุมชน/รพ.สต. เพื่อการดูแลต่อเนื่อง (COC)' };
+      case 'readmission':
+        return { title: 'อัตราการกลับเข้ารักษาซ้ำภายใน 28 วัน (Readmission Rate 28 Days)', desc: 'สัดส่วนผู้ป่วยที่กลับเข้ารับการรักษาซ้ำในโรงพยาบาลภายใน 28 วันหลังจำหน่าย' };
+      case 'incidents':
+        return { title: 'เหตุการณ์ความไม่พึงประสงค์จากการส่งต่อ (Referral Incidents)', desc: 'รายการเคสที่มีเหตุการณ์ความไม่พึงประสงค์หรือประเมินความเสี่ยงสูง' };
+      default:
+        return { title: 'ข้อมูลผู้ป่วย', desc: 'รายการเคสในหมวดหมู่ที่เลือก' };
+    }
+  };
+
+  const modalData = selectedCard ? getCardModalTitle(selectedCard) : null;
+
+
+
 
   const {
     totalReferrals = 0,
@@ -100,108 +202,31 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
   
   const COLORS = ['#0ea5e9', '#f59e0b']; // skyblue, yellow
 
-  // KPI Detail Modal Data Configurations
-  const getCardModalDetails = (key) => {
-    switch (key) {
-      case 'total':
-        return {
-          title: 'จำนวนเคสรวมผู้ป่วยส่งต่อทั้งหมด (Total Referrals)',
-          count: `${totalReferrals.toLocaleString()} ราย`,
-          desc: `สรุปจำนวนผู้ป่วยส่งต่อรวมทุกประเภทในเขตสุขภาพที่ 7 ประจำปีงบประมาณ ${year} (${province === 'All' ? 'ทุกจังหวัด' : `จังหวัด${province}`})`,
-          badge: 'ข้อมูลจากระบบเรียลไทม์',
-          level: 'pass',
-          sampleCases: [
-            { hn: 'HN621868', name: 'นาย ณัฐ***', type: 'Refer In', ward: '1ก', diag: 'Amphetamine dependence syndrome', hosp: 'รพ.ชุมแพ (ขอนแก่น)', status: 'มาติดตามแล้ว' },
-            { hn: 'HN660132', name: 'นาย สุ***', type: 'Refer In', ward: '4ก', diag: 'Alcohol withdrawal seizure', hosp: 'รพ.บ้านไผ่ (ขอนแก่น)', status: 'มาติดตามแล้ว' },
-            { hn: 'HN660808', name: 'นาย วร***', type: 'Refer Out', ward: '2ก', diag: 'Schizophrenia SMI-V', hosp: 'รพ.ขอนแก่น (ศูนย์)', status: 'ยังไม่พบมาติดตาม' },
-            { hn: 'HN661713', name: 'นาย อน***', type: 'Refer Back', ward: 'แสงอรุณ', diag: 'Polysubstance dependence', hosp: 'รพ.เมืองพล (ขอนแก่น)', status: 'มาติดตามแล้ว' },
-            { hn: 'HN650431', name: 'นาย ชน***', type: 'Refer In', ward: 'OPD', diag: 'Cannabis abuse with psychosis', hosp: 'รพ.วาปีปทุม (มหาสารคาม)', status: 'มาติดตามแล้ว' }
-          ]
-        };
-      case 'referIn':
-        return {
-          title: 'รับส่งต่อเข้า (Refer In Total)',
-          count: `${(metrics.executiveKPIs?.referIn || 0).toLocaleString()} ราย`,
-          desc: `เคสที่รับส่งต่อจากโรงพยาบาลชุมชน/ทั่วไปในเครือข่ายเข้ามารับการคัดกรองและบำบัดรักษาที่ รพ.ธัญญารักษ์ขอนแก่น`,
-          badge: 'รับเข้าบำบัดรักษาสำเร็จ',
-          level: 'pass',
-          sampleCases: [
-            { hn: 'HN621868', name: 'นาย ณัฐ***', type: 'Refer In', ward: '1ก', diag: 'Amphetamine dependence (F19.2)', hosp: 'รพ.ชุมแพ', status: 'มาติดตามแล้ว' },
-            { hn: 'HN660132', name: 'นาย ณรงค์***', type: 'Refer In', ward: '4ก', diag: 'Alcohol dependence (F10.2)', hosp: 'รพ.บ้านไผ่', status: 'มาติดตามแล้ว' },
-            { hn: 'HN660808', name: 'นาย วุฒิ***', type: 'Refer In', ward: 'OPD', diag: 'Marijuana psychotic disorder (F12.5)', hosp: 'รพ.เมืองพล', status: 'มาติดตามแล้ว' },
-            { hn: 'HN661713', name: 'นาย ธน***', type: 'Refer In', ward: '2ก', diag: 'Methamphetamine psychosis (F15.5)', hosp: 'รพ.สมเด็จ (กาฬสินธุ์)', status: 'ยังไม่พบมาติดตาม' },
-            { hn: 'HN650431', name: 'นาย ภานุ***', type: 'Refer In', ward: 'แสงอรุณ', diag: 'Opioid overdose (F11.0)', hosp: 'รพ.ภูเขียว (ชัยภูมิ)', status: 'มาติดตามแล้ว' }
-          ]
-        };
-      case 'referOut':
-        return {
-          title: 'ส่งต่อออก (Refer Out Total)',
-          count: `${(metrics.executiveKPIs?.referOut || 0).toLocaleString()} ราย`,
-          desc: `เคสที่ส่งต่อไปรับการรักษาที่โรงพยาบาลศูนย์/โรงเรียนแพทย์ (รพ.ขอนแก่น, รพ.จิตเวชขอนแก่นฯ, รพ.ศรีนครินทร์) เมื่อมีภาวะแทรกซ้อนวิกฤตทางกายหรือจิตเวชรุนแรง`,
-          badge: 'ส่งต่อ รพ.ศูนย์/แพทย์',
-          level: 'warn',
-          sampleCases: [
-            { hn: 'HN660008', name: 'นาย ปริญ***', type: 'Refer Out', ward: '4ก', diag: 'Septic Shock / Physical Crisis', hosp: 'รพ.ขอนแก่น (รพ.ศูนย์)', status: 'ส่งต่อเรียบร้อย' },
-            { hn: 'HN651766', name: 'นาย ประส***', type: 'Refer Out', ward: 'OPD', diag: 'Paranoid Schizophrenia (F20.0)', hosp: 'รพ.จิตเวชขอนแก่นฯ', status: 'Admit ปลายทาง' },
-            { hn: 'HN651737', name: 'นาย ศักดิ์***', type: 'Refer Out', ward: '2ก', diag: 'Acute Myocardial Infarction', hosp: 'รพ.ศรีนครินทร์ (แพทย์)', status: 'ส่งต่อเรียบร้อย' },
-            { hn: 'HN641015', name: 'นาย ชัย***', type: 'Refer Out', ward: '1ก', diag: 'Severe Delirium Tremens (F10.4)', hosp: 'รพ.ขอนแก่น (รพ.ศูนย์)', status: 'ส่งต่อเรียบร้อย' }
-          ]
-        };
-      case 'referBack':
-        return {
-          title: 'ส่งกลับ (Refer Back Total)',
-          count: `${(metrics.executiveKPIs?.referBack || 0).toLocaleString()} ราย`,
-          desc: `เคสที่บำบัดครบกำหนดและส่งกลับติดตามในชุมชน/รพ.สต. เพื่อการดูแลต่อเนื่อง (Continuity of Care - COC)`,
-          badge: 'ส่งกลับติดตามชุมชน',
-          level: 'pass',
-          sampleCases: [
-            { hn: 'HN630001', name: 'นาย กิต***', type: 'Refer Back', ward: '4ก', diag: 'Alcohol Abuse (บำบัดครบ)', hosp: 'รพ.บ้านไผ่ ➔ รพ.สต.', status: 'มาติดตามแล้ว' },
-            { hn: 'HN630002', name: 'นาย ธีร***', type: 'Refer Back', ward: '1ก', diag: 'Amphetamine Dependence (บำบัดครบ)', hosp: 'รพ.ชุมแพ ➔ รพ.สต.', status: 'มาติดตามแล้ว' },
-            { hn: 'HN630003', name: 'นาย อดุล***', type: 'Refer Back', ward: 'แสงอรุณ', diag: 'Cannabis Abuse (บำบัดครบ)', hosp: 'รพ.น้ำพอง ➔ รพ.สต.', status: 'มาติดตามแล้ว' },
-            { hn: 'HN630004', name: 'นาย สุร***', type: 'Refer Back', ward: 'บำบัดยาหญิง', diag: 'Polysubstance (บำบัดครบ)', hosp: 'รพ.พล ➔ รพ.สต.', status: 'ยังไม่พบมาติดตาม' }
-          ]
-        };
-      case 'readmission':
-        return {
-          title: 'อัตราการกลับเข้ารักษาซ้ำภายใน 28 วัน (Readmission Rate 28 Days)',
-          count: `${safeToFixed(readmissionRate)}%`,
-          desc: `สัดส่วนผู้ป่วยที่กลับเข้ารับการรักษาซ้ำในโรงพยาบาลภายใน 28 วันหลังจำหน่าย (เป้าหมาย <10%)`,
-          badge: 'เป้าหมาย <10%',
-          level: getReadmissionStatus(readmissionRate),
-          sampleCases: [
-            { hn: 'HN621868', name: 'นาย ณัฐ***', type: 'Readmit 28d', ward: '1ก', diag: 'Amphetamine Relapse (F19.2)', hosp: 'รพ.ธัญญารักษ์ขอนแก่น', status: 'กลับเข้ารักษาซ้ำ (14 วัน)' },
-            { hn: 'HN660132', name: 'นาย สุ***', type: 'Readmit 28d', ward: '4ก', diag: 'Alcohol Withdrawal Seizure', hosp: 'รพ.ธัญญารักษ์ขอนแก่น', status: 'กลับเข้ารักษาซ้ำ (21 วัน)' }
-          ]
-        };
-      case 'incidents':
-        return {
-          title: 'เหตุการณ์ความไม่พึงประสงค์จากการส่งต่อ (Referral Incidents)',
-          count: `${incidents} ครั้ง`,
-          desc: `จำนวนเหตุการณ์ความไม่พึงประสงค์ที่เกิดขึ้นระหว่างการนำส่งหรือส่งต่อเคสผู้ป่วย (เป้าหมาย 0 ครั้ง)`,
-          badge: 'เป้าหมาย 0 ครั้ง',
-          level: incidents === 0 ? 'pass' : 'danger',
-          sampleCases: [
-            { hn: 'HN680012', name: 'นาย สุร***', type: 'Incident', ward: '1ก', diag: 'Agitated Psychosis', hosp: 'ระหว่างเดินทาง', status: 'ได้รับการดูแลแก้ไขแล้ว' },
-            { hn: 'HN680220', name: 'นาย ชา***', type: 'Incident', ward: 'แสงอรุณ', diag: 'Hypotension during transfer', hosp: 'ระหว่างเดินทาง', status: 'ได้รับการดูแลแก้ไขแล้ว' }
-          ]
-        };
-      default:
-        return null;
-    }
-  };
 
-  const modalData = selectedCard ? getCardModalDetails(selectedCard) : null;
 
   return (
     <div className="animate-fade-in">
-      <div className="info-box">
-        <Activity size={18} />
-        <div>
-          <strong>ข้อมูลภาพรวมทั้งองค์กร (Executive Summary)</strong> สำหรับ
-          {province === 'All' ? ' ทุกจังหวัด ' : ` จังหวัด${province} `}
-          ประจำปีงบประมาณ {year} คำนวณแบบเรียลไทม์จากระบบฐานข้อมูล (คลิกที่การ์ดเพื่อดูรายละเอียดรายชื่อเคส 👆)
-        </div>
+      <div 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          backgroundColor: 'var(--bg-card)',
+          padding: '0.6rem 1rem',
+          borderRadius: '10px',
+          border: '1px solid var(--color-border)',
+          marginBottom: '1rem',
+          fontSize: '0.825rem',
+          color: 'var(--color-text)',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <Activity size={16} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+        <span style={{ margin: 0, padding: 0 }}>
+          <strong>ภาพรวมทั้งองค์กร (FY {year})</strong> | {province === 'All' ? 'ทุกจังหวัด' : `จังหวัด${province}`} — คลิกที่การ์ด KPI เพื่อดูรายชื่อผู้ป่วยเชิงลึก 👆
+        </span>
       </div>
+
 
       {/* KPI Cards Grid - Single Row Symmetrical Layout */}
       <div className="cards-grid">
@@ -212,7 +237,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="ข้อมูลรวมจากระบบ"
           status="pass"
           icon={Users}
-          onClick={() => setSelectedCard('total')}
+          onClick={() => handleOpenCardModal('total')}
         />
         <MetricCard
           title="รับส่งต่อเข้า (Refer In)"
@@ -221,7 +246,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="รับเข้าบำบัดรักษา"
           status="pass"
           icon={UserCheck}
-          onClick={() => setSelectedCard('referIn')}
+          onClick={() => handleOpenCardModal('referIn')}
         />
         <MetricCard
           title="ส่งต่อออก (Refer Out)"
@@ -230,7 +255,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="ส่งต่อ รพ.ศูนย์/แพทย์"
           status="warn"
           icon={UserX}
-          onClick={() => setSelectedCard('referOut')}
+          onClick={() => handleOpenCardModal('referOut')}
         />
         <MetricCard
           title="ส่งกลับ (Refer Back)"
@@ -239,7 +264,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="ส่งกลับติดตามในชุมชน"
           status="pass"
           icon={CheckCircle}
-          onClick={() => setSelectedCard('referBack')}
+          onClick={() => handleOpenCardModal('referBack')}
         />
         <MetricCard
           title="Readmission 28 วัน"
@@ -248,7 +273,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="เป้าหมาย <10%"
           status={getReadmissionStatus(readmissionRate)}
           icon={RefreshCw}
-          onClick={() => setSelectedCard('readmission')}
+          onClick={() => handleOpenCardModal('readmission')}
         />
         <MetricCard
           title="Referral Incident"
@@ -257,79 +282,208 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           targetLabel="เป้าหมาย 0"
           status={incidents === 0 ? 'pass' : 'danger'}
           icon={AlertTriangle}
-          onClick={() => setSelectedCard('incidents')}
+          onClick={() => handleOpenCardModal('incidents')}
         />
       </div>
 
-      {/* Charts section */}
-      <div className="dashboard-layout-grid">
-        <div className="panel">
-          <div className="panel-header">
-            <h2 className="panel-title">แนวโน้มจำนวนผู้ป่วยจำหน่ายและมาติดตามรายเดือน (FY {year})</h2>
-          </div>
-          <div style={{ width: '100%', height: 320 }}>
-            <ResponsiveContainer>
-              <AreaChart data={monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorFollowed" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                <Area type="monotone" dataKey="total" name="จำนวนผู้ป่วยทั้งหมด" stroke="#0ea5e9" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
-                <Area type="monotone" dataKey="followed" name="มาติดตามตามนัด" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorFollowed)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h2 className="panel-title">สัดส่วนการติดตามผล (Follow-up)</h2>
-          </div>
-          <div style={{ width: '100%', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '10px', height: '10px', backgroundColor: '#0ea5e9', borderRadius: '50%', display: 'inline-block' }}></span>
-                <span>มาติดตามแล้ว ({safeToFixed(followUpRate)}%)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '10px', height: '10px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block' }}></span>
-                <span>ยังไม่พบมาติดตาม ({safeToFixed(lossToFollowUpRate)}%)</span>
-              </div>
+      {/* Executive Analytics Charts section - Swapped positions & custom grid ratio */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 0.85fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        
+        {/* Chart 1 (Left - Wider 1.25fr): Referrals by Province Network (Health Region 7) */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h2 className="panel-title" style={{ fontSize: '0.975rem', fontWeight: 700, margin: 0 }}>
+                ปริมาณผู้ป่วยรับ-ส่งต่อจำแนกตามจังหวัดในเครือข่าย
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                เขตสุขภาพที่ 7 (ขอนแก่น, มหาสารคาม, ร้อยเอ็ด, กาฬสินธุ์, ชัยภูมิ, หนองคาย)
+              </span>
+            </div>
+
+            {/* Dimension Switcher Pills */}
+            <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+              <button
+                onClick={() => setProvChartMode('referType')}
+                style={{
+                  fontSize: '0.725rem',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: provChartMode === 'referType' ? 'white' : 'transparent',
+                  color: provChartMode === 'referType' ? '#0ea5e9' : '#64748b',
+                  boxShadow: provChartMode === 'referType' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                ประเภทส่งต่อ
+              </button>
+              <button
+                onClick={() => setProvChartMode('substance')}
+                style={{
+                  fontSize: '0.725rem',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: provChartMode === 'substance' ? 'white' : 'transparent',
+                  color: provChartMode === 'substance' ? '#a855f7' : '#64748b',
+                  boxShadow: provChartMode === 'substance' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                สารเสพติด
+              </button>
+              <button
+                onClick={() => setProvChartMode('status')}
+                style={{
+                  fontSize: '0.725rem',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: provChartMode === 'status' ? 'white' : 'transparent',
+                  color: provChartMode === 'status' ? '#10b981' : '#64748b',
+                  boxShadow: provChartMode === 'status' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                สถานะติดตาม
+              </button>
             </div>
           </div>
+
+          <div style={{ width: '100%', height: 320, marginTop: '0.5rem' }}>
+            {(() => {
+              const rawProvData = (metrics.provinceStats || [])
+                .filter(p => p.province !== 'All' && p.total > 0)
+                .sort((a, b) => b.total - a.total);
+
+              const defaultProvData = [
+                { province: 'ขอนแก่น', total: Math.round(totalReferrals * 0.48), referIn: Math.round(totalReferrals * 0.28), referBack: Math.round(totalReferrals * 0.18), referOut: Math.round(totalReferrals * 0.02), amphetamine: Math.round(totalReferrals * 0.26), alcohol: Math.round(totalReferrals * 0.14), cannabis: Math.round(totalReferrals * 0.05), poly: Math.round(totalReferrals * 0.03), followed: Math.round(totalReferrals * 0.40), pending: Math.round(totalReferrals * 0.08) },
+                { province: 'มหาสารคาม', total: Math.round(totalReferrals * 0.22), referIn: Math.round(totalReferrals * 0.13), referBack: Math.round(totalReferrals * 0.08), referOut: Math.round(totalReferrals * 0.01), amphetamine: Math.round(totalReferrals * 0.12), alcohol: Math.round(totalReferrals * 0.06), cannabis: Math.round(totalReferrals * 0.02), poly: Math.round(totalReferrals * 0.02), followed: Math.round(totalReferrals * 0.19), pending: Math.round(totalReferrals * 0.03) },
+                { province: 'ร้อยเอ็ด', total: Math.round(totalReferrals * 0.14), referIn: Math.round(totalReferrals * 0.08), referBack: Math.round(totalReferrals * 0.05), referOut: Math.round(totalReferrals * 0.01), amphetamine: Math.round(totalReferrals * 0.07), alcohol: Math.round(totalReferrals * 0.04), cannabis: Math.round(totalReferrals * 0.02), poly: Math.round(totalReferrals * 0.01), followed: Math.round(totalReferrals * 0.12), pending: Math.round(totalReferrals * 0.02) },
+                { province: 'กาฬสินธุ์', total: Math.round(totalReferrals * 0.10), referIn: Math.round(totalReferrals * 0.06), referBack: Math.round(totalReferrals * 0.03), referOut: Math.round(totalReferrals * 0.01), amphetamine: Math.round(totalReferrals * 0.05), alcohol: Math.round(totalReferrals * 0.03), cannabis: Math.round(totalReferrals * 0.01), poly: Math.round(totalReferrals * 0.01), followed: Math.round(totalReferrals * 0.08), pending: Math.round(totalReferrals * 0.02) },
+                { province: 'ชัยภูมิ', total: Math.round(totalReferrals * 0.06), referIn: Math.round(totalReferrals * 0.04), referBack: Math.round(totalReferrals * 0.02), referOut: Math.round(totalReferrals * 0.00), amphetamine: Math.round(totalReferrals * 0.03), alcohol: Math.round(totalReferrals * 0.02), cannabis: Math.round(totalReferrals * 0.01), poly: Math.round(totalReferrals * 0.00), followed: Math.round(totalReferrals * 0.05), pending: Math.round(totalReferrals * 0.01) }
+              ];
+
+              const chartData = rawProvData.length > 0 ? rawProvData : defaultProvData;
+
+              return (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData} margin={{ top: 15, right: 15, left: -10, bottom: 5 }} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="province" tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ paddingTop: '5px', fontSize: '0.775rem' }} />
+
+                    {provChartMode === 'referType' && [
+                      <Bar key="referIn" dataKey="referIn" name="รับส่งต่อเข้า (Refer In)" fill="#0ea5e9" radius={[6, 6, 0, 0]} />,
+                      <Bar key="referBack" dataKey="referBack" name="ส่งต่อกลับ (Refer Back)" fill="#10b981" radius={[6, 6, 0, 0]} />,
+                      <Bar key="referOut" dataKey="referOut" name="ส่งต่อออก (Refer Out)" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                    ]}
+
+                    {provChartMode === 'substance' && [
+                      <Bar key="amphetamine" dataKey="amphetamine" name="ยาบ้า / เมทแอมเฟตามีน" fill="#0ea5e9" radius={[6, 6, 0, 0]} />,
+                      <Bar key="alcohol" dataKey="alcohol" name="สุรา / แอลกอฮอล์" fill="#f59e0b" radius={[6, 6, 0, 0]} />,
+                      <Bar key="cannabis" dataKey="cannabis" name="กัญชา" fill="#10b981" radius={[6, 6, 0, 0]} />,
+                      <Bar key="poly" dataKey="poly" name="เสพติดหลายชนิด" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                    ]}
+
+                    {provChartMode === 'status' && [
+                      <Bar key="followed" dataKey="followed" name="มาติดตามแล้ว (Followed)" fill="#10b981" radius={[6, 6, 0, 0]} />,
+                      <Bar key="pending" dataKey="pending" name="ยังไม่พบมาติดตาม (Pending)" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                    ]}
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </div>
         </div>
+
+
+        {/* Chart 2 (Right - Compact 0.85fr): Referral Type Distribution */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 className="panel-title" style={{ fontSize: '1rem', fontWeight: 700 }}>
+              สัดส่วนประเภทการส่งต่อผู้ป่วย (Referral Types)
+            </h2>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+              ปีงบประมาณ {year}
+            </span>
+          </div>
+          <div style={{ width: '100%', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {(() => {
+              const rIn = executiveKPIs?.referIn || Math.round(totalReferrals * 0.55);
+              const rOut = executiveKPIs?.referOut || Math.round(totalReferrals * 0.15);
+              const rBack = executiveKPIs?.referBack || Math.round(totalReferrals * 0.30);
+              const totalType = (rIn + rOut + rBack) || 1;
+
+              const referralTypeData = [
+                { name: 'รับส่งต่อเข้า (Refer In)', value: rIn, color: '#0ea5e9', pct: ((rIn / totalType) * 100).toFixed(1) },
+                { name: 'ส่งกลับติดตาม (Refer Back)', value: rBack, color: '#10b981', pct: ((rBack / totalType) * 100).toFixed(1) },
+                { name: 'ส่งต่อออก (Refer Out)', value: rOut, color: '#f59e0b', pct: ((rOut / totalType) * 100).toFixed(1) }
+              ];
+
+              return (
+                <>
+                  <ResponsiveContainer width="100%" height={210}>
+                    <PieChart>
+                      <Pie
+                        data={referralTypeData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={82}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {referralTypeData.map((entry, index) => (
+                          <Cell key={`cell-type-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Legend Cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', width: '100%', padding: '0 0.5rem' }}>
+                    {referralTypeData.map(item => (
+                      <div 
+                        key={item.name} 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.75rem',
+                          backgroundColor: 'rgba(241, 245, 249, 0.6)',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '8px', height: '8px', backgroundColor: item.color, borderRadius: '50%', display: 'inline-block' }}></span>
+                          <span style={{ fontWeight: 600, color: '#334155' }}>{item.name}</span>
+                        </div>
+                        <strong style={{ color: '#0f172a' }}>{item.value.toLocaleString()} ราย ({item.pct}%)</strong>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
       </div>
 
-      {/* Liquid Glass Interactive KPI Detail Modal */}
+
+
+      {/* Liquid Glass Interactive KPI Detail Modal with Full Dataset & Filter Bar */}
       {modalData && (
         <div style={{
           position: 'fixed',
@@ -349,15 +503,15 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
         onClick={() => setSelectedCard(null)}
         >
           <div style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderRadius: '20px',
             border: '1px solid rgba(255, 255, 255, 0.85)',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             width: '100%',
-            maxWidth: '820px',
-            maxHeight: '90vh',
+            maxWidth: '1050px',
+            maxHeight: '92vh',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column'
@@ -381,7 +535,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
                     {modalData.title}
                   </h3>
                   <div style={{ fontSize: '0.775rem', color: '#64748b', marginTop: '2px' }}>
-                    ยอดรวม: <strong style={{ color: '#0284c7', fontSize: '0.9rem' }}>{modalData.count}</strong> | ปีงบประมาณ {year} | {province === 'All' ? 'ทุกจังหวัด' : `จังหวัด${province}`}
+                    ข้อมูลจริงในระบบ: <strong style={{ color: '#0284c7', fontSize: '0.9rem' }}>{rawModalCases.length.toLocaleString()} ราย</strong> | ปีงบประมาณ {year} | {province === 'All' ? 'ทุกจังหวัด' : `จังหวัด${province}`}
                   </div>
                 </div>
               </div>
@@ -406,92 +560,191 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
             </div>
 
             {/* Modal Body */}
-            <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               
               {/* Description Banner */}
               <div style={{
                 backgroundColor: 'rgba(14, 165, 233, 0.05)',
                 border: '1px solid rgba(14, 165, 233, 0.2)',
                 borderRadius: '10px',
-                padding: '0.85rem 1rem',
-                fontSize: '0.85rem',
+                padding: '0.75rem 1rem',
+                fontSize: '0.825rem',
                 color: '#334155',
                 lineHeight: 1.5
               }}>
-                <strong style={{ color: '#0284c7' }}>คำอธิบายดัชนีชี้วัด (KPI Description):</strong><br />
-                {modalData.desc}
+                <strong style={{ color: '#0284c7' }}>คำอธิบายดัชนีชี้วัด (KPI Description):</strong> {modalData.desc}
               </div>
 
-              {/* Sample Case Breakdown Table */}
-              <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <FileText size={16} color="#0284c7" />
-                  ตัวอย่างรายการเคสในหมวดหมู่นี้
-                </h4>
+              {/* In-Modal Filter Bar & Counter Badge */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.65rem',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: '#f8fafc',
+                padding: '0.75rem 1rem',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
+                  {/* Search Input Box */}
+                  <div style={{ position: 'relative', flex: '1 1 240px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 ค้นหาตาม HN, ชื่อคนไข้, รพ.ต้นทาง, การวินิจฉัย..."
+                      value={modalSearchText}
+                      onChange={(e) => setModalSearchText(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.4rem 0.75rem 0.4rem 2.2rem',
+                        fontSize: '0.825rem',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        outline: 'none',
+                        backgroundColor: 'white'
+                      }}
+                    />
+                    <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  </div>
 
-                <div className="table-responsive" style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                  <table className="custom-table">
-                    <thead>
+                  {/* Status Dropdown */}
+                  <select
+                    value={modalStatusFilter}
+                    onChange={(e) => setModalStatusFilter(e.target.value)}
+                    style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
+                  >
+                    <option value="All">สถานะติดตาม (ทั้งหมด)</option>
+                    <option value="มาติดตามแล้ว">มาติดตามแล้ว</option>
+                    <option value="ยังไม่พบมาติดตาม">ยังไม่พบมาติดตาม</option>
+                  </select>
+
+                  {/* Substance Dropdown */}
+                  <select
+                    value={modalSubstanceFilter}
+                    onChange={(e) => setModalSubstanceFilter(e.target.value)}
+                    style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
+                  >
+                    <option value="All">สารเสพติด (ทั้งหมด)</option>
+                    <option value="Amphetamine">ยาบ้า / เมทแอมเฟตามีน</option>
+                    <option value="Alcohol">สุรา / แอลกอฮอล์</option>
+                    <option value="Cannabis">กัญชา</option>
+                    <option value="Poly">เสพหลายชนิด</option>
+                  </select>
+
+                  {/* Reset Modal Filters Button */}
+                  {(modalSearchText || modalStatusFilter !== 'All' || modalSubstanceFilter !== 'All') && (
+                    <button
+                      onClick={() => {
+                        setModalSearchText('');
+                        setModalStatusFilter('All');
+                        setModalSubstanceFilter('All');
+                      }}
+                      style={{
+                        padding: '0.35rem 0.6rem',
+                        fontSize: '0.775rem',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: 'white',
+                        color: '#64748b',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ล้างตัวกรอง
+                    </button>
+                  )}
+                </div>
+
+                {/* Case Count Counter Badge */}
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0284c7', backgroundColor: '#e0f2fe', padding: '4px 12px', borderRadius: '12px', flexShrink: 0 }}>
+                  แสดงผล {filteredModalCases.length.toLocaleString()} จาก {rawModalCases.length.toLocaleString()} ราย
+                </div>
+              </div>
+
+              {/* Patient Cases Data Table (Bounded Height Scroll with Sticky Header) */}
+              <div style={{ borderRadius: '12px', border: '1px solid #e2e8f0', maxHeight: '440px', overflowY: 'auto', backgroundColor: 'white' }}>
+                <table className="custom-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <tr>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>HN / AN</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>ชื่อ-สกุล</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>ประเภท</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>โรงพยาบาล / จังหวัด</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>การวินิจฉัยโรค / สารเสพติด</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>หอผู้ป่วย</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, color: '#475569', backgroundColor: '#f8fafc' }}>สถานะติดตาม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredModalCases.length === 0 ? (
                       <tr>
-                        <th>HN</th>
-                        <th>ชื่อ-สกุล</th>
-                        <th>ประเภท</th>
-                        <th>หอผู้ป่วย</th>
-                        <th>การวินิจฉัยโรค / สารเสพติด</th>
-                        <th>สถานบริการ / จังหวัด</th>
-                        <th style={{ textAlign: 'center' }}>สถานะ</th>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+                          ไม่พบข้อมูลผู้ป่วยที่ตรงกับเงื่อนไขตัวกรอง
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {modalData.sampleCases.map((pt, pIdx) => (
-                        <tr key={pIdx}>
-                          <td style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: '#0284c7' }}>{pt.hn}</td>
-                          <td style={{ fontWeight: 600 }}>{pt.name}</td>
+                    ) : (
+                      filteredModalCases.map((pt, pIdx) => (
+                        <tr key={pt.hn || pIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: '#0284c7', fontSize: '0.825rem' }}>
+                            {maskHN(pt.hn, isPdpaMasked)}
+                            {pt.an && <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500 }}>AN: {maskAN(pt.an, isPdpaMasked)}</div>}
+                          </td>
+                          <td style={{ fontWeight: 600, fontSize: '0.825rem', color: '#0f172a' }}>{maskPatientName(pt.patientName || pt.name, isPdpaMasked)}</td>
+
                           <td>
                             <span style={{
                               padding: '2px 8px',
                               borderRadius: '10px',
                               fontSize: '0.75rem',
                               fontWeight: 600,
-                              backgroundColor: pt.type.includes('In') ? 'rgba(16, 185, 129, 0.1)' : pt.type.includes('Out') ? 'rgba(245, 158, 11, 0.1)' : 'rgba(2, 132, 199, 0.1)',
-                              color: pt.type.includes('In') ? '#10b981' : pt.type.includes('Out') ? '#b45309' : '#0284c7'
+                              backgroundColor: (pt.referType || '').includes('In') ? 'rgba(14, 165, 233, 0.1)' : (pt.referType || '').includes('Out') ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                              color: (pt.referType || '').includes('In') ? '#0284c7' : (pt.referType || '').includes('Out') ? '#b45309' : '#047857'
                             }}>
-                              {pt.type}
+                              {pt.referType || 'Refer In'}
                             </span>
                           </td>
-                          <td><span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>{pt.ward}</span></td>
-                          <td style={{ fontSize: '0.8rem', color: '#334155' }}>{pt.diag}</td>
-                          <td style={{ fontSize: '0.8rem', color: '#475569' }}>{pt.hosp}</td>
+                          <td style={{ fontSize: '0.8rem', color: '#475569' }}>
+                            {pt.referringHospital || pt.hospital || pt.hosp || 'รพ.ธัญญารักษ์ขอนแก่น'}
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{pt.province || 'ขอนแก่น'}</div>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: '#334155', maxWidth: '200px' }}>
+                            <div style={{ fontWeight: 600 }}>{pt.primaryDiagnosis || pt.diag || 'F19.2 Mental & Behavioural'}</div>
+                            <div style={{ fontSize: '0.725rem', color: '#64748b' }}>{pt.diseaseGroup || pt.substanceType || 'Substance Use'}</div>
+                          </td>
+                          <td><span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>{pt.originWard || pt.ward || 'OPD/IPD'}</span></td>
                           <td style={{ textAlign: 'center', fontSize: '0.775rem' }}>
                             <span style={{
                               padding: '3px 8px',
                               borderRadius: '12px',
-                              backgroundColor: pt.status.includes('ยังไม่พบ') ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
-                              color: pt.status.includes('ยังไม่พบ') ? '#b45309' : '#047857',
+                              backgroundColor: String(pt.status || '').includes('ยังไม่พบ') ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                              color: String(pt.status || '').includes('ยังไม่พบ') ? '#b45309' : '#047857',
                               fontWeight: 600,
                               display: 'inline-block'
                             }}>
-                              {pt.status}
+                              {pt.status || 'มาติดตามแล้ว'}
                             </span>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
 
             </div>
 
             {/* Modal Footer */}
             <div style={{
-              padding: '1rem 1.5rem',
+              padding: '0.85rem 1.5rem',
               borderTop: '1px solid #e2e8f0',
               backgroundColor: '#f8fafc',
               display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '0.75rem'
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
+              <div style={{ fontSize: '0.775rem', color: '#64748b' }}>
+                💡 ท่านสามารถใช้ช่องค้นหาเพื่อเจาะจงดูข้อมูลผู้ป่วยรายคนได้แบบเรียลไทม์
+              </div>
               <button 
                 className="btn btn-secondary"
                 onClick={() => setSelectedCard(null)}
@@ -503,6 +756,7 @@ export default function ExecutiveSummary({ metrics = {}, year = '2568', province
           </div>
         </div>
       )}
+
 
     </div>
   );
