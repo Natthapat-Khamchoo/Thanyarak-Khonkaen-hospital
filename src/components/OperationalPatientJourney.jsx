@@ -31,7 +31,8 @@ export default function OperationalPatientJourney({
       </div>
 
       {/* Main Grid: Funnel Flow Left + Leaflet Map Right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Left Side: Patient Journey Funnel */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>

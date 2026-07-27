@@ -36,8 +36,9 @@ export default function ClinicalAnalytics({ yoyData, advancedMetrics, province }
           </h2>
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+        <div className="dashboard-layout-grid">
           <div style={{ width: '100%', height: 280 }}>
+
             <ResponsiveContainer>
               <LineChart data={yoyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
@@ -83,7 +84,8 @@ export default function ClinicalAnalytics({ yoyData, advancedMetrics, province }
       </div>
 
       {/* Days to Follow Up and Length of Stay (Double Panel) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Panel 1: Duration to Follow Up */}
         <div className="panel">

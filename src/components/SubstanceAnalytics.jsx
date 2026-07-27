@@ -137,7 +137,8 @@ export default function SubstanceAnalytics({ data }) {
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Left Panel: Care Ratio & Substance Breakdown */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

@@ -288,7 +288,8 @@ export default function ExecutiveSummary({ metrics = {}, data = [], year = '2568
 
 
       {/* Executive Analytics Charts section - Swapped positions & custom grid ratio */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 0.85fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Chart 1 (Left - Wider 1.25fr): Referrals by Province Network (Health Region 7) */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>

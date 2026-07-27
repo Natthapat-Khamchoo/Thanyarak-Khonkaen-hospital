@@ -538,16 +538,15 @@ body {
     padding: 0.4rem 1.5rem 0.4rem 0.6rem !important;
   }
 
-  /* 100% Vertical Container Stack on Mobile (NO side-by-side elements) */
-  .cards-grid {
-    grid-template-columns: 1fr !important; /* Stack single column vertically! */
-    gap: 0.75rem !important;
-  }
-
-  .dashboard-layout-grid {
-    grid-template-columns: 1fr !important; /* Stack single column vertically! */
+  /* 100% Strict Vertical Container Stack on Mobile (FORCES SINGLE-COLUMN FOR ALL GRIDS) */
+  .cards-grid,
+  .dashboard-layout-grid,
+  *[style*="gridTemplateColumns"],
+  *[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important; /* Force 100% Single Column Vertical Stack */
     gap: 1rem !important;
   }
+
 
   .kpi-card {
     padding: 1rem !important;

@@ -232,7 +232,7 @@ export default function HALearningAndAIAlert({ aiAlerts = [], continuityOfCare =
       </div>
 
       {/* Bottom Grid: Continuity of Care (Left) + 9 AI Alerts (Right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
         
         {/* Left: Continuity of Care (COC) Panel */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -243,7 +243,8 @@ export default function HALearningAndAIAlert({ aiAlerts = [], continuityOfCare =
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="cards-grid" style={{ gap: '0.75rem', marginBottom: 0 }}>
+
             <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
                 <Video size={14} color="#0284c7" /> Telemedicine

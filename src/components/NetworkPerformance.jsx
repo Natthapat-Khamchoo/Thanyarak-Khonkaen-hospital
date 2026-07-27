@@ -145,7 +145,8 @@ export default function NetworkPerformance({ provinceStats, onSelectProvince, ac
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
       {/* Level 2 Visual & Interactive Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Left Side: Province Table */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

@@ -133,7 +133,8 @@ export default function ReferralDestinationChart({ data }) {
       </div>
 
       {/* Main Grid Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1.5rem' }}>
+      <div className="dashboard-layout-grid">
+
         
         {/* Left: Origin Wards & Target Hospital Distributions */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
