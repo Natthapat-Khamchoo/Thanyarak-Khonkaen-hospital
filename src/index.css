@@ -469,8 +469,13 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 /* ==========================================================================
-   Mobile & Touch Screen Optimization (Responsive Design)
+   Mobile & Touch Screen Optimization (100% Vertical Stack + Left Slide Drawer)
    ========================================================================== */
 
 @media (max-width: 768px) {
@@ -515,7 +520,7 @@ body {
     gap: 0.5rem !important;
   }
 
-  /* Filter Bar Touch Scrollable on Mobile */
+  /* Filter Bar Container Vertical Stack on Mobile */
   .filter-bar-container {
     flex-wrap: wrap !important;
     padding: 0.65rem 0.75rem !important;
@@ -523,51 +528,34 @@ body {
   }
 
   .select-wrapper {
-    flex: 1 1 140px;
-    min-width: 125px;
+    flex: 1 1 100%;
+    width: 100% !important;
   }
 
   .custom-select {
-    width: 100%;
-    font-size: 0.775rem !important;
-    padding: 0.35rem 1.5rem 0.35rem 0.5rem !important;
+    width: 100% !important;
+    font-size: 0.8rem !important;
+    padding: 0.4rem 1.5rem 0.4rem 0.6rem !important;
   }
 
-  /* Navigation Tabs Responsive Touch Scroll */
-  .tabs-navigation {
-    display: flex !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding: 4px !important;
-    gap: 4px !important;
-  }
-
-  .tab-btn {
-    flex: 0 0 auto !important;
-    min-width: 120px;
-    padding: 0.5rem 0.6rem !important;
-    font-size: 0.775rem !important;
-    scroll-snap-align: start;
-  }
-
-  /* KPI Cards Grid */
+  /* 100% Vertical Container Stack on Mobile (NO side-by-side elements) */
   .cards-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.65rem !important;
+    grid-template-columns: 1fr !important; /* Stack single column vertically! */
+    gap: 0.75rem !important;
+  }
+
+  .dashboard-layout-grid {
+    grid-template-columns: 1fr !important; /* Stack single column vertically! */
+    gap: 1rem !important;
   }
 
   .kpi-card {
-    padding: 0.85rem !important;
-    border-radius: 12px !important;
+    padding: 1rem !important;
+    border-radius: 14px !important;
   }
 
   .kpi-value {
-    font-size: 1.4rem !important;
-  }
-
-  .kpi-header {
-    font-size: 0.75rem !important;
+    font-size: 1.6rem !important;
   }
 
   .panel {
@@ -578,13 +566,19 @@ body {
   .panel-title {
     font-size: 0.95rem !important;
   }
+
+  /* Hide Desktop Top Navigation Bar on Mobile */
+  .tabs-navigation {
+    display: none !important;
+  }
+
+  /* Show Mobile Left Drawer Page Selector Button */
+  .mobile-drawer-trigger-container {
+    display: block !important;
+  }
 }
 
 @media (max-width: 480px) {
-  .cards-grid {
-    grid-template-columns: 1fr !important;
-  }
-
   .header-actions {
     flex-direction: column !important;
     align-items: stretch !important;
@@ -594,4 +588,5 @@ body {
     justify-content: center !important;
   }
 }
+
 

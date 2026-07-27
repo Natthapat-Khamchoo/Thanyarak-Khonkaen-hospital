@@ -51,7 +51,9 @@ import {
   ShieldAlert,
   FileText,
   Clock,
-  AlertOctagon
+  AlertOctagon,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function App() {
@@ -63,6 +65,8 @@ export default function App() {
   const [substanceFilter, setSubstanceFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeLevel, setActiveLevel] = useState('1'); // '1' to '7'
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false); // Mobile Left Slide-out Drawer
+
   
   // Data State
   const [allData, setAllData] = useState({ '2566': [], '2567': [], '2568': [], '2569': [] });
@@ -665,7 +669,140 @@ export default function App() {
       </div>
 
 
-      {/* Navigation Tabs - 7 Concise Topics */}
+      {/* Mobile Left Drawer Page Trigger Button */}
+      <div className="mobile-drawer-trigger-container" style={{ display: 'none', marginBottom: '1.25rem' }}>
+        <button
+          onClick={() => setIsMobileDrawerOpen(true)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#0f172a',
+            color: 'white',
+            padding: '0.75rem 1rem',
+            borderRadius: '14px',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.3)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Menu size={20} color="#38bdf8" />
+            <span>
+              หน้าปัจจุบัน: {[
+                { level: '1', label: 'ภาพรวมผู้บริหาร' },
+                { level: '2', label: 'เส้นทางผู้ป่วย' },
+                { level: '3', label: 'วินิจฉัย & ความเสี่ยง' },
+                { level: '4', label: 'คุณภาพ & เตือนภัย AI' },
+                { level: '5', label: 'สารเสพติด & กาย' },
+                { level: '6', label: 'ส่งต่อ & หอผู้ป่วย' },
+                { level: '7', label: 'ติดตามเคส' }
+              ].find(p => p.level === activeLevel)?.label}
+            </span>
+          </div>
+          <span style={{ fontSize: '0.75rem', backgroundColor: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 9px', borderRadius: '10px', fontWeight: 700 }}>
+            สไลด์เมนูด้านซ้าย ➔
+          </span>
+        </button>
+      </div>
+
+      {/* Mobile Left Sidebar Drawer Overlay */}
+      {isMobileDrawerOpen && (
+        <div 
+          onClick={() => setIsMobileDrawerOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            display: 'flex'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '290px',
+              maxWidth: '85vw',
+              height: '100%',
+              backgroundColor: '#0f172a',
+              color: 'white',
+              boxShadow: '10px 0 35px rgba(0,0,0,0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '1.25rem 1rem',
+              animation: 'slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontWeight: 800, fontSize: '0.95rem', color: '#38bdf8' }}>
+                <SlidersHorizontal size={18} />
+                <span>เลือกหน้าแดชบอร์ด</span>
+              </div>
+              <button 
+                onClick={() => setIsMobileDrawerOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1, overflowY: 'auto' }}>
+              {[
+                { level: '1', label: 'ภาพรวมผู้บริหาร', icon: Activity },
+                { level: '2', label: 'เส้นทางผู้ป่วย', icon: Network },
+                { level: '3', label: 'วินิจฉัย & ความเสี่ยง', icon: Award },
+                { level: '4', label: 'คุณภาพ & เตือนภัย AI', icon: ShieldCheck },
+                { level: '5', label: 'สารเสพติด & กาย', icon: Pill },
+                { level: '6', label: 'ส่งต่อ & หอผู้ป่วย', icon: Building2 },
+                { level: '7', label: 'ติดตามเคส', icon: AlertCircle }
+              ].map((p) => {
+                const IconComponent = p.icon;
+                const isActive = activeLevel === p.level;
+                return (
+                  <button
+                    key={p.level}
+                    onClick={() => {
+                      setActiveLevel(p.level);
+                      setIsMobileDrawerOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '12px',
+                      border: isActive ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255,255,255,0.05)',
+                      backgroundColor: isActive ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                      color: isActive ? '#38bdf8' : '#e2e8f0',
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '0.9rem',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <IconComponent size={18} color={isActive ? '#38bdf8' : '#94a3b8'} />
+                    <span>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '0.725rem', color: '#64748b', textAlign: 'center' }}>
+              โรงพยาบาลธัญญารักษ์ขอนแก่น v2.4
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Tabs - Desktop View */}
       <nav className="tabs-navigation">
         <button 
           className={`tab-btn ${activeLevel === '1' ? 'active' : ''}`}
@@ -717,6 +854,7 @@ export default function App() {
           <span>ติดตามเคส</span>
         </button>
       </nav>
+
 
       {/* Loading Overlay */}
       {loading ? (
