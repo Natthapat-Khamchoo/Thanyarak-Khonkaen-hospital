@@ -293,7 +293,7 @@ export default function App() {
       </div>
 
       {/* Security Guard Top Bar */}
-      <div style={{
+      <div className="security-top-bar" style={{
         backgroundColor: '#0f172a',
         color: '#e2e8f0',
         padding: '0.45rem 1.25rem',
@@ -306,7 +306,7 @@ export default function App() {
         borderBottom: '1px solid rgba(255,255,255,0.1)'
       }}>
         {/* PDPA Privacy Toggle & Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <div className="security-top-left" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: '#38bdf8' }}>
             <ShieldCheck size={16} />
             <span>Healthcare Data Guard v2.4</span>
@@ -335,7 +335,8 @@ export default function App() {
         </div>
 
         {/* Lock Actions & Audit Trail */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="security-top-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+
 
 
           {/* View Audit Logs Button */}
@@ -475,7 +476,9 @@ export default function App() {
 
       {/* Filter Panel - Compact Single Row Layout */}
       <div 
+        className="filter-bar-container"
         style={{
+
           display: 'flex',
           flexWrap: 'nowrap',
           gap: '0.5rem',

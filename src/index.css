@@ -468,3 +468,130 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Mobile & Touch Screen Optimization (Responsive Design)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: 0.6rem !important;
+  }
+
+  /* Top Security Guard Bar Mobile Stack */
+  .security-top-bar {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    padding: 0.6rem 0.85rem !important;
+  }
+
+  .security-top-left, .security-top-right {
+    flex-wrap: wrap !important;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* App Header Responsive */
+  .app-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 1rem !important;
+    gap: 0.85rem !important;
+  }
+
+  .header-title-section h1 {
+    font-size: 1.15rem !important;
+    flex-wrap: wrap;
+  }
+
+  .header-title-section p {
+    font-size: 0.775rem !important;
+  }
+
+  .header-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Filter Bar Touch Scrollable on Mobile */
+  .filter-bar-container {
+    flex-wrap: wrap !important;
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.4rem !important;
+  }
+
+  .select-wrapper {
+    flex: 1 1 140px;
+    min-width: 125px;
+  }
+
+  .custom-select {
+    width: 100%;
+    font-size: 0.775rem !important;
+    padding: 0.35rem 1.5rem 0.35rem 0.5rem !important;
+  }
+
+  /* Navigation Tabs Responsive Touch Scroll */
+  .tabs-navigation {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px !important;
+    gap: 4px !important;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto !important;
+    min-width: 120px;
+    padding: 0.5rem 0.6rem !important;
+    font-size: 0.775rem !important;
+    scroll-snap-align: start;
+  }
+
+  /* KPI Cards Grid */
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  .kpi-card {
+    padding: 0.85rem !important;
+    border-radius: 12px !important;
+  }
+
+  .kpi-value {
+    font-size: 1.4rem !important;
+  }
+
+  .kpi-header {
+    font-size: 0.75rem !important;
+  }
+
+  .panel {
+    padding: 1rem !important;
+    border-radius: 14px !important;
+  }
+
+  .panel-title {
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .header-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .btn {
+    justify-content: center !important;
+  }
+}
+
